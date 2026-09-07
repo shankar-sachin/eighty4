@@ -8,7 +8,8 @@ struct FunctionDef {
 
 /// Every built-in function the menus can insert. Names are stored without the "(".
 enum Functions {
-    static let lazyNames: Set<String> = ["seq", "fMin", "fMax", "nDeriv", "fnInt", "Σ"]
+    static let lazyNames: Set<String> = ["seq", "fMin", "fMax", "nDeriv", "fnInt", "Σ",
+                                         "Fill", "Matr▶list", "List▶matr", "Tangent", "Shade", "expr"]
 
     static var allNames: [String] { Array(table.keys) + Array(lazyNames) }
 
@@ -259,6 +260,131 @@ enum Functions {
             guard case .str(let s) = a[2] else { throw CalcError.dataType }
             c.store.drawings.append(.text(try n(a[0]), try n(a[1]), s))
             c.store.pendingShowGraph = true
+            return .str("Done")
+        }
+        reg("Pt-Off", 2, 2) { a, c in
+            let x = try n(a[0]), y = try n(a[1])
+            c.store.drawings.removeAll { if case .point(let px, let py) = $0 { return px == x && py == y }; return false }
+            c.store.pendingShowGraph = true
+            return .str("Done")
+        }
+        reg("Pt-Change", 2, 2) { a, c in
+            let x = try n(a[0]), y = try n(a[1])
+            let before = c.store.drawings.count
+            c.store.drawings.removeAll { if case .point(let px, let py) = $0 { return px == x && py == y }; return false }
+            if c.store.drawings.count == before { c.store.drawings.append(.point(x, y)) }
+            c.store.pendingShowGraph = true
+            return .str("Done")
+        }
+        func pxl(_ a: [Value]) throws -> (Double, Double) {
+            let r = try n(a[0]), col = try n(a[1])
+            guard r >= 0, r <= 164, col >= 0, col <= 264 else { throw CalcError.domain }
+            return (r.rounded(), col.rounded())
+        }
+        reg("Pxl-On", 2, 2) { a, c in
+            let (r, col) = try pxl(a)
+            if !c.store.drawings.contains(.pixel(r, col)) { c.store.drawings.append(.pixel(r, col)) }
+            c.store.pendingShowGraph = true
+            return .str("Done")
+        }
+        reg("Pxl-Off", 2, 2) { a, c in
+            let (r, col) = try pxl(a)
+            c.store.drawings.removeAll { $0 == .pixel(r, col) }
+            c.store.pendingShowGraph = true
+            return .str("Done")
+        }
+        reg("Pxl-Change", 2, 2) { a, c in
+            let (r, col) = try pxl(a)
+            if c.store.drawings.contains(.pixel(r, col)) { c.store.drawings.removeAll { $0 == .pixel(r, col) } }
+            else { c.store.drawings.append(.pixel(r, col)) }
+            c.store.pendingShowGraph = true
+            return .str("Done")
+        }
+        reg("pxl-Test", 2, 2) { a, c in
+            let (r, col) = try pxl(a)
+            return .num(c.store.drawings.contains(.pixel(r, col)) ? 1 : 0)
+        }
+
+        // DISTR DRAW
+        func shade(_ kind: String, _ params: [Double], _ lo: Double, _ hi: Double, _ c: EvalContext) -> Value {
+            let area = Stats.distCDF(kind, params, lo, hi)
+            let cap = "Area=\(ResultFormatter.number((area * 1e6).rounded() / 1e6)) low=\(ResultFormatter.number(lo)) up=\(ResultFormatter.number(hi))"
+            c.store.drawings.append(.dist(kind, params, lo, hi, cap))
+            c.store.pendingShowGraph = true
+            return .num(area)
+        }
+        reg("ShadeNorm", 2, 4) { a, c in
+            let mu = a.count > 2 ? try n(a[2]) : 0, sd = a.count > 3 ? try n(a[3]) : 1
+            return shade("norm", [mu, sd], try n(a[0]), try n(a[1]), c)
+        }
+        reg("Shade_t", 3, 3) { a, c in shade("t", [try n(a[2])], try n(a[0]), try n(a[1]), c) }
+        reg("Shadeχ²", 3, 3) { a, c in shade("chi2", [try n(a[2])], try n(a[0]), try n(a[1]), c) }
+        reg("ShadeF", 4, 4) { a, c in shade("F", [try n(a[2]), try n(a[3])], try n(a[0]), try n(a[1]), c) }
+
+        // MATRIX row operations (return the new matrix)
+        func rowIndex(_ v: Value, _ m: [[Double]]) throws -> Int {
+            let r = Int(try n(v)) - 1
+            guard r >= 0, r < m.count else { throw CalcError.invalidDim }
+            return r
+        }
+        reg("rowSwap", 3, 3) { a, _ in
+            var mm = try m(a[0])
+            let r1 = try rowIndex(a[1], mm), r2 = try rowIndex(a[2], mm)
+            mm.swapAt(r1, r2)
+            return .matrix(mm)
+        }
+        reg("row+", 3, 3) { a, _ in
+            var mm = try m(a[0])
+            let r1 = try rowIndex(a[1], mm), r2 = try rowIndex(a[2], mm)
+            mm[r2] = zip(mm[r1], mm[r2]).map { $0 + $1 }
+            return .matrix(mm)
+        }
+        reg("*row", 3, 3) { a, _ in
+            let k = try n(a[0])
+            var mm = try m(a[1])
+            let r = try rowIndex(a[2], mm)
+            mm[r] = mm[r].map { $0 * k }
+            return .matrix(mm)
+        }
+        reg("*row+", 4, 4) { a, _ in
+            let k = try n(a[0])
+            var mm = try m(a[1])
+            let r1 = try rowIndex(a[2], mm), r2 = try rowIndex(a[3], mm)
+            mm[r2] = zip(mm[r1], mm[r2]).map { $0 * k + $1 }
+            return .matrix(mm)
+        }
+
+        // Strings / programs
+        reg("length", 1, 1) { a, _ in
+            guard case .str(let s) = a[0] else { throw CalcError.dataType }
+            return .num(Double(s.count))
+        }
+        reg("sub", 3, 3) { a, _ in
+            guard case .str(let s) = a[0] else { throw CalcError.dataType }
+            let start = Int(try n(a[1])) - 1, len = Int(try n(a[2]))
+            guard start >= 0, len >= 0, start + len <= s.count else { throw CalcError.domain }
+            return .str(String(Array(s)[start..<(start + len)]))
+        }
+        reg("inString", 2, 3) { a, _ in
+            guard case .str(let s) = a[0], case .str(let f) = a[1] else { throw CalcError.dataType }
+            let start = a.count == 3 ? Int(try n(a[2])) - 1 : 0
+            let chars = Array(s), needle = Array(f)
+            guard !needle.isEmpty, start >= 0 else { return .num(0) }
+            var i = start
+            while i + needle.count <= chars.count {
+                if Array(chars[i..<(i + needle.count)]) == needle { return .num(Double(i + 1)) }
+                i += 1
+            }
+            return .num(0)
+        }
+        reg("getKey", 0, 0) { _, c in .num(Double(c.store.lastKey)) }
+
+        // STAT TESTS: ANOVA(L1, L2, …)
+        reg("ANOVA", 2, 20) { a, c in
+            let groups = try a.map { try l($0) }
+            let r = try Stats.anova(groups)
+            for (k, v) in r.values { c.store.stats[k] = v }
+            c.store.pendingResults = r.lines
             return .str("Done")
         }
         return t

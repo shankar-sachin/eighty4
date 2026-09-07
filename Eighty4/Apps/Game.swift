@@ -6,6 +6,18 @@ protocol Game: AnyObject {
     func update(now: TimeInterval)
     func press(_ key: KeyID)
     func draw(_ ctx: inout GraphicsContext, size: CGSize)
+    /// Full key info: the raw key plus what it resolves to under the current 2nd/alpha modifier.
+    func handle(_ key: KeyID, _ action: KeyAction)
+    /// Set by an app that wants to return to the home screen.
+    var wantsExit: Bool { get }
+    /// Apps that use CLEAR themselves; games let CLEAR quit directly.
+    var handlesClear: Bool { get }
+}
+
+extension Game {
+    func handle(_ key: KeyID, _ action: KeyAction) { press(key) }
+    var wantsExit: Bool { false }
+    var handlesClear: Bool { false }
 }
 
 extension GraphicsContext {

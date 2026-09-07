@@ -156,10 +156,16 @@ struct LCDView: View {
         case .table: TableScreenView()
         case .message(let lines): TextScreenView(lines: lines)
         case .about: TextScreenView(lines: state.aboutLines)
-        case .memMgmt: TextScreenView(lines: state.memLines)
         case .linkReceive: TextScreenView(lines: ["Waiting..."])
         case .app:
             if let g = state.game { AppScreenView(game: g) }
+        case .solver: SolverView()
+        case .varList(let m): VarListView(mode: m)
+        case .confirm(let k): ConfirmView(kind: k)
+        case .programEditor: ProgramEditorView()
+        case .programName: NameEntryView(title: "PROGRAM")
+        case .groupName: NameEntryView(title: "GROUP")
+        case .programMenu(let title, let items): ProgramMenuView(title: title, items: items)
         case .off: EmptyView()
         }
     }

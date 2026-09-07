@@ -17,7 +17,7 @@ struct EditorDef {
 }
 
 enum Editors {
-    static func def(_ id: EditorID) -> EditorDef {
+    static func def(_ id: EditorID, store: VariableStore) -> EditorDef {
         switch id {
         case .mode:
             return EditorDef(title: nil, rows: [
@@ -53,11 +53,20 @@ enum Editors {
                 .options(SettingRow(key: "depend", label: "Depend:", options: ["Auto", "Ask"])),
             ])
         case .window:
-            return EditorDef(title: "WINDOW", rows: [
+            let xy: [EditorRow] = [
                 .number(key: "Xmin", label: "Xmin"), .number(key: "Xmax", label: "Xmax"), .number(key: "Xscl", label: "Xscl"),
                 .number(key: "Ymin", label: "Ymin"), .number(key: "Ymax", label: "Ymax"), .number(key: "Yscl", label: "Yscl"),
-                .number(key: "Xres", label: "Xres"),
-            ])
+            ]
+            switch store.graphType {
+            case .function:
+                return EditorDef(title: "WINDOW", rows: xy + [.number(key: "Xres", label: "Xres")])
+            case .parametric:
+                return EditorDef(title: "WINDOW", rows: [.number(key: "Tmin", label: "Tmin"), .number(key: "Tmax", label: "Tmax"), .number(key: "Tstep", label: "Tstep")] + xy)
+            case .polar:
+                return EditorDef(title: "WINDOW", rows: [.number(key: "θmin", label: "θmin"), .number(key: "θmax", label: "θmax"), .number(key: "θstep", label: "θstep")] + xy)
+            case .sequence:
+                return EditorDef(title: "WINDOW", rows: [.number(key: "nMin", label: "nMin"), .number(key: "nMax", label: "nMax"), .number(key: "PlotStart", label: "PlotStart"), .number(key: "PlotStep", label: "PlotStep")] + xy)
+            }
         case .plot1, .plot2, .plot3:
             let i = id == .plot1 ? 1 : (id == .plot2 ? 2 : 3)
             return EditorDef(title: "Plot\(i)", rows: [
@@ -75,6 +84,10 @@ enum Editors {
                 .number(key: "P/Y", label: "P/Y"), .number(key: "C/Y", label: "C/Y"),
                 .options(SettingRow(key: "pmtTiming", label: "PMT:", options: ["END", "BEGIN"])),
             ])
+        case .zoomFactors:
+            return EditorDef(title: "ZOOM FACTORS", rows: [.number(key: "XFact", label: "XFact"), .number(key: "YFact", label: "YFact")])
+        case .statTest(let t):
+            return EditorDef(title: t.title, rows: t.rows(store: store))
         }
     }
 }

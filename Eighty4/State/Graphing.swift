@@ -3,6 +3,8 @@ import CoreGraphics
 
 enum ZoomKind: Equatable {
     case standard, decimal, square, trig, integer, stat, fit, previous, sto, rcl, zoomIn, zoomOut, quadrant1
+    case frac(Int)
+    case box(Double, Double, Double, Double)
 }
 
 struct GraphWindow {
@@ -22,10 +24,14 @@ struct GraphWindow {
     func px(_ x: Double, _ size: CGSize) -> CGFloat { CGFloat((x - xmin) / (xmax - xmin)) * size.width }
     func py(_ y: Double, _ size: CGSize) -> CGFloat { CGFloat((ymax - y) / (ymax - ymin)) * size.height }
     func xAt(column: Int, _ size: CGSize) -> Double { xmin + (xmax - xmin) * Double(column) / Double(max(1, Int(size.width) - 1)) }
+    func yAt(row: Double, _ size: CGSize) -> Double { ymax - (ymax - ymin) * row / Double(size.height) }
+    func xAt(col: Double, _ size: CGSize) -> Double { xmin + (xmax - xmin) * col / Double(size.width) }
 }
 
 enum Graphing {
     static let size = CGSize(width: 320, height: 218)
+    /// TI-84 Plus CE graph area in pixels, for Pxl-On( / pxl-Test( coordinates.
+    static let tiPixels = CGSize(width: 265, height: 165)
     static let windowKeys = ["Xmin", "Xmax", "Xscl", "Ymin", "Ymax", "Yscl"]
 
     static func setWindow(_ store: VariableStore, _ xmin: Double, _ xmax: Double, _ xscl: Double, _ ymin: Double, _ ymax: Double, _ yscl: Double) {
@@ -45,6 +51,14 @@ enum Graphing {
         case .decimal: setWindow(store, -6.6, 6.6, 1, -4.1, 4.1, 1)
         case .integer: setWindow(store, -47, 47, 10, -31, 31, 10)
         case .quadrant1: setWindow(store, 0, 10, 1, 0, 10, 1)
+        case .frac(let n):
+            let d = Double(max(2, n))
+            let xr: Double = 66.0 / d
+            let yr: Double = 41.0 / d
+            setWindow(store, -xr, xr, 1, -yr, yr, 1)
+        case .box(let x1, let y1, let x2, let y2):
+            guard x1 != x2, y1 != y2 else { return }
+            setWindow(store, min(x1, x2), max(x1, x2), w.xscl, min(y1, y2), max(y1, y2), w.yscl)
         case .trig:
             if store.degrees { setWindow(store, -352.5, 352.5, 90, -4, 4, 1) }
             else { setWindow(store, -47 / 24 * .pi, 47 / 24 * .pi, .pi / 2, -4, 4, 1) }
@@ -71,12 +85,22 @@ enum Graphing {
             setWindow(store, xmn - xpad, xmx + xpad, w.xscl, ymn - ypad, ymx + ypad, w.yscl)
         case .fit:
             var lo = Double.infinity, hi = -Double.infinity
-            for n in 0...9 {
-                for col in stride(from: 0, to: Int(size.width), by: 4) {
-                    if let y = y(n, at: w.xAt(column: col, size), store: store), y.isFinite { lo = min(lo, y); hi = max(hi, y) }
+            var xlo = Double.infinity, xhi = -Double.infinity
+            for n in definedFunctions(store) {
+                if store.graphType == .function {
+                    for col in stride(from: 0, to: Int(size.width), by: 4) {
+                        if let y = y(n, at: w.xAt(column: col, size), store: store), y.isFinite { lo = min(lo, y); hi = max(hi, y) }
+                    }
+                } else {
+                    for p in parameterValues(store) {
+                        if let (x, y) = point(n, at: p, store: store) { lo = min(lo, y); hi = max(hi, y); xlo = min(xlo, x); xhi = max(xhi, x) }
+                    }
                 }
             }
-            if lo.isFinite, hi.isFinite, hi > lo { setWindow(store, w.xmin, w.xmax, w.xscl, lo, hi, w.yscl) }
+            if lo.isFinite, hi.isFinite, hi > lo {
+                if store.graphType == .function || !(xlo.isFinite && xhi > xlo) { setWindow(store, w.xmin, w.xmax, w.xscl, lo, hi, w.yscl) }
+                else { setWindow(store, xlo, xhi, w.xscl, lo, hi, w.yscl) }
+            }
         case .previous:
             for (k, v) in store.previousWindow { store.numbers[k] = v }
         case .sto:
@@ -93,47 +117,131 @@ enum Graphing {
         return (Array(lx.prefix(n)), Array(ly.prefix(n)))
     }
 
+    // MARK: - Evaluation in every graph mode
+
     /// Evaluates Yn at x. Returns nil for undefined / errors / disabled functions.
     static func y(_ n: Int, at x: Double, store: VariableStore) -> Double? {
         guard let text = store.yFuncs[n], !text.isEmpty, store.isYEnabled(n) else { return nil }
-        let old = store.xOverride
-        store.xOverride = x
-        defer { store.xOverride = old }
-        guard let v = try? Evaluator.evaluate(text, ctx: EvalContext(store: store)), let d = v.asDouble, d.isFinite else { return nil }
-        return d
+        return evaluate(text, at: x, store: store)
     }
 
     static func evaluate(_ text: String, at x: Double, store: VariableStore) -> Double? {
-        let old = store.xOverride
-        store.xOverride = x
-        defer { store.xOverride = old }
+        evaluate(text, with: ["X": x], store: store)
+    }
+
+    static func evaluate(_ text: String, with vars: [String: Double], store: VariableStore) -> Double? {
+        let old = store.overrides
+        for (k, v) in vars { store.overrides[k] = v }
+        defer { store.overrides = old }
         guard let v = try? Evaluator.evaluate(text, ctx: EvalContext(store: store)), let d = v.asDouble, d.isFinite else { return nil }
         return d
     }
 
+    /// Function keys drawn for index n in the current mode.
+    static func keys(for n: Int, _ store: VariableStore) -> [String] {
+        switch store.graphType {
+        case .function: return ["Y\(n)"]
+        case .parametric: return ["X\(n)T", "Y\(n)T"]
+        case .polar: return ["r\(n)"]
+        case .sequence: return [Sequences.names[max(0, min(2, n - 1))]]
+        }
+    }
+
     static func definedFunctions(_ store: VariableStore) -> [Int] {
-        let order = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]
-        return order.filter { !(store.yFuncs[$0] ?? "").isEmpty && store.isYEnabled($0) }
+        switch store.graphType {
+        case .function:
+            return [1, 2, 3, 4, 5, 6, 7, 8, 9, 0].filter { !(store.yFuncs[$0] ?? "").isEmpty && store.isYEnabled($0) }
+        case .parametric:
+            return (1...6).filter { !(store.funcs["X\($0)T"] ?? "").isEmpty && !(store.funcs["Y\($0)T"] ?? "").isEmpty && store.funcEnabled("X\($0)T") }
+        case .polar:
+            return (1...6).filter { !(store.funcs["r\($0)"] ?? "").isEmpty && store.funcEnabled("r\($0)") }
+        case .sequence:
+            return (1...3).filter { !(store.funcs[Sequences.names[$0 - 1]] ?? "").isEmpty && store.funcEnabled(Sequences.names[$0 - 1]) }
+        }
+    }
+
+    /// Name of the independent variable in the current mode.
+    static func parameterName(_ store: VariableStore) -> String {
+        switch store.graphType {
+        case .function: return "X"
+        case .parametric: return "T"
+        case .polar: return "θ"
+        case .sequence: return "n"
+        }
+    }
+
+    /// (min, max, step) of the parameter in non-function modes.
+    static func parameterRange(_ store: VariableStore) -> (Double, Double, Double) {
+        switch store.graphType {
+        case .function:
+            let w = GraphWindow(store: store)
+            return (w.xmin, w.xmax, (w.xmax - w.xmin) / Double(Int(size.width) - 1))
+        case .parametric: return (store.numbers["Tmin"] ?? 0, store.numbers["Tmax"] ?? 2 * .pi, store.numbers["Tstep"] ?? .pi / 24)
+        case .polar: return (store.numbers["θmin"] ?? 0, store.numbers["θmax"] ?? 2 * .pi, store.numbers["θstep"] ?? .pi / 24)
+        case .sequence: return (store.numbers["PlotStart"] ?? 1, store.numbers["nMax"] ?? 10, store.numbers["PlotStep"] ?? 1)
+        }
+    }
+
+    static func parameterValues(_ store: VariableStore) -> [Double] {
+        let (lo, hi, step) = parameterRange(store)
+        guard step > 0, hi >= lo else { return [] }
+        var out: [Double] = []
+        var p = lo
+        while p <= hi + 1e-9 && out.count < 5000 { out.append(p); p += step }
+        return out
+    }
+
+    /// Point (x, y) for function n at parameter value p in the current mode.
+    static func point(_ n: Int, at p: Double, store: VariableStore) -> (Double, Double)? {
+        switch store.graphType {
+        case .function:
+            guard let yv = y(n, at: p, store: store) else { return nil }
+            return (p, yv)
+        case .parametric:
+            guard let xt = store.funcs["X\(n)T"], let yt = store.funcs["Y\(n)T"], store.funcEnabled("X\(n)T"),
+                  let x = evaluate(xt, with: ["T": p], store: store), let y = evaluate(yt, with: ["T": p], store: store) else { return nil }
+            return (x, y)
+        case .polar:
+            guard let rt = store.funcs["r\(n)"], store.funcEnabled("r\(n)"),
+                  let r = evaluate(rt, with: ["θ": p], store: store) else { return nil }
+            let a = store.degrees ? p * .pi / 180 : p
+            return (r * cos(a), r * sin(a))
+        case .sequence:
+            let name = Sequences.names[max(0, min(2, n - 1))]
+            guard store.funcEnabled(name), let v = try? Sequences.value(name, n: Int(p.rounded()), store: store, depth: 0), v.isFinite else { return nil }
+            return (p.rounded(), v)
+        }
     }
 
     static func samples(_ store: VariableStore) -> [Int: [CGPoint?]] {
         let w = GraphWindow(store: store)
         guard w.isValid else { return [:] }
         var out: [Int: [CGPoint?]] = [:]
-        let cols = Int(size.width)
-        for n in definedFunctions(store) {
-            var pts: [CGPoint?] = []
-            pts.reserveCapacity(cols)
-            for col in 0..<cols {
-                let x = w.xAt(column: col, size)
-                if let y = y(n, at: x, store: store) {
-                    let py = w.py(y, size)
-                    pts.append(abs(py) < 5000 ? CGPoint(x: CGFloat(col), y: py) : nil)
-                } else {
-                    pts.append(nil)
+        if store.graphType == .function {
+            let cols = Int(size.width)
+            for n in definedFunctions(store) {
+                var pts: [CGPoint?] = []
+                pts.reserveCapacity(cols)
+                for col in 0..<cols {
+                    let x = w.xAt(column: col, size)
+                    if let y = y(n, at: x, store: store) {
+                        let py = w.py(y, size)
+                        pts.append(abs(py) < 5000 ? CGPoint(x: CGFloat(col), y: py) : nil)
+                    } else {
+                        pts.append(nil)
+                    }
                 }
+                out[n] = pts
             }
-            out[n] = pts
+            return out
+        }
+        let params = parameterValues(store)
+        for n in definedFunctions(store) {
+            out[n] = params.map { p in
+                guard let (x, y) = point(n, at: p, store: store) else { return nil }
+                let px = w.px(x, size), py = w.py(y, size)
+                return (abs(px) < 5000 && abs(py) < 5000) ? CGPoint(x: px, y: py) : nil
+            }
         }
         return out
     }
@@ -150,6 +258,28 @@ enum Graphing {
         case 8: return (0.05, 0.1, 0.5)
         case 9: return (0.3, 0.6, 0.9)
         default: return (0.5, 0.5, 0.5)
+        }
+    }
+
+    /// BackgroundOn color codes (TI 10…24).
+    static func backgroundColor(_ code: Int) -> (Double, Double, Double)? {
+        switch code {
+        case 10: return (0.55, 0.7, 1.0)
+        case 11: return (1.0, 0.6, 0.6)
+        case 12: return (0.35, 0.35, 0.35)
+        case 13: return (1.0, 0.6, 0.9)
+        case 14: return (0.6, 0.9, 0.6)
+        case 15: return (1.0, 0.8, 0.5)
+        case 16: return (0.75, 0.6, 0.45)
+        case 17: return (0.5, 0.55, 0.8)
+        case 18: return (0.75, 0.9, 1.0)
+        case 19: return (1.0, 1.0, 0.6)
+        case 20: return (1, 1, 1)
+        case 21: return (0.85, 0.85, 0.85)
+        case 22: return (0.7, 0.7, 0.7)
+        case 23: return (0.55, 0.55, 0.55)
+        case 24: return (0.4, 0.4, 0.4)
+        default: return nil
         }
     }
 
@@ -197,6 +327,11 @@ enum Graphing {
     }
 
     static func derivative(_ n: Int, at x: Double, store: VariableStore) throws -> Double {
+        if store.graphType != .function {
+            let h = 1e-4
+            guard let (x1, y1) = point(n, at: x + h, store: store), let (x0, y0) = point(n, at: x - h, store: store), x1 != x0 else { throw CalcError.undefined }
+            return (y1 - y0) / (x1 - x0)
+        }
         let h = 0.001
         guard let a = y(n, at: x + h, store: store), let b = y(n, at: x - h, store: store) else { throw CalcError.undefined }
         return (a - b) / (2 * h)
