@@ -2,17 +2,13 @@ import Foundation
 
 enum Command: Equatable {
     case zoom(ZoomKind)
-    case clearEntries, about
-    case oneVar, twoVar, linReg, linRegAlt, quadReg, cubicReg, quartReg, expReg, lnReg, pwrReg, medMed, logistic, sinReg
-    case listEditor, matrixEdit(String)
+    case clearEntries, resetAll, resetDefaults, about, memMgmt
+    case oneVar, twoVar, linReg, linRegAlt, quadReg, cubicReg, quartReg, expReg, lnReg, pwrReg, medMed
+    case listEditor, matrixEdit(String), programsReadOnly
     case calc(CalcOp), trace
     case linkSend, linkReceive
     case clrDraw, insertRegEQ
-    case solver, pen, zbox
-    case statTest(StatTest)
-    case runProgram(String), editProgram(String), newProgram
-    case varList(VarListMode), confirm(ConfirmKind)
-    case createGroup, ungroup(String)
+    case notAvailable(String)
 }
 
 enum MenuAction: Equatable {
@@ -49,21 +45,19 @@ enum Menus {
     private static func ins(_ s: String) -> MenuItem { MenuItem(label: s, action: .insert(s)) }
     private static func ins(_ label: String, _ s: String) -> MenuItem { MenuItem(label: label, action: .insert(s)) }
     private static func cmd(_ label: String, _ c: Command) -> MenuItem { MenuItem(label: label, action: .command(c)) }
+    private static func na(_ label: String) -> MenuItem { MenuItem(label: label, action: .command(.notAvailable(label))) }
     private static func sub(_ label: String, _ id: MenuID) -> MenuItem { MenuItem(label: label, action: .submenu(id)) }
-    private static func app(_ label: String, _ id: AppID) -> MenuItem { MenuItem(label: label, action: .app(id)) }
-
-    static let builtInPrograms: [(String, AppID)] = [("GEODASH", .geoDash), ("TETRIS", .tetris)]
 
     static func def(_ id: MenuID, store: VariableStore) -> MenuDef {
         let subs = Tokenizer.subscripts
         switch id {
         case .math:
             return MenuDef(tabs: [
-                MenuTab(title: "MATH", items: [ins("▶Frac"), ins("▶Dec"), ins("³"), ins("³√("), ins("ˣ√"), ins("fMin("), ins("fMax("), ins("nDeriv("), ins("fnInt("), ins("Σ("), ins("logBASE("), cmd("Solver…", .solver)]),
+                MenuTab(title: "MATH", items: [ins("▶Frac"), ins("▶Dec"), ins("³"), ins("³√("), ins("ˣ√"), ins("fMin("), ins("fMax("), ins("nDeriv("), ins("fnInt("), ins("Σ("), ins("logBASE("), na("Solver…")]),
                 MenuTab(title: "NUM", items: [ins("abs("), ins("round("), ins("iPart("), ins("fPart("), ins("int("), ins("min("), ins("max("), ins("lcm("), ins("gcd("), ins("remainder(")]),
                 MenuTab(title: "CMPLX", items: [ins("conj("), ins("real("), ins("imag("), ins("angle("), ins("abs("), ins("▶Rect"), ins("▶Polar")]),
                 MenuTab(title: "PROB", items: [ins("rand"), ins("nPr", " nPr "), ins("nCr", " nCr "), ins("!"), ins("randInt("), ins("randNorm("), ins("randBin("), ins("randIntNoRep(")]),
-                MenuTab(title: "FRAC", items: [ins("n/d", "/"), ins("Un/d", "_"), ins("▶n/d◀▶Un/d"), ins("▶F◀▶D")]),
+                MenuTab(title: "FRAC", items: [ins("n/d", "/"), na("Un/d"), ins("▶n/d◀▶Un/d"), ins("▶F◀▶D")]),
             ])
         case .test:
             return MenuDef(tabs: [
@@ -75,51 +69,37 @@ enum Menus {
         case .distr:
             return MenuDef(tabs: [
                 MenuTab(title: "DISTR", items: [ins("normalpdf("), ins("normalcdf("), ins("invNorm("), ins("invT("), ins("tpdf("), ins("tcdf("), ins("χ²pdf("), ins("χ²cdf("), ins("Fpdf("), ins("Fcdf("), ins("binompdf("), ins("binomcdf("), ins("poissonpdf("), ins("poissoncdf("), ins("geometpdf("), ins("geometcdf(")]),
-                MenuTab(title: "DRAW", items: [ins("ShadeNorm("), ins("Shade_t("), ins("Shadeχ²("), ins("ShadeF(")]),
+                MenuTab(title: "DRAW", items: [na("ShadeNorm("), na("Shade_t("), na("Shadeχ²("), na("ShadeF(")]),
             ])
         case .list:
             return MenuDef(tabs: [
                 MenuTab(title: "NAMES", items: (1...6).map { ins("L\(subs[$0])") }),
-                MenuTab(title: "OPS", items: [ins("SortA("), ins("SortD("), ins("dim("), ins("Fill("), ins("seq("), ins("cumSum("), ins("ΔList("), ins("augment(")]),
+                MenuTab(title: "OPS", items: [ins("SortA("), ins("SortD("), ins("dim("), na("Fill("), ins("seq("), ins("cumSum("), ins("ΔList("), ins("augment(")]),
                 MenuTab(title: "MATH", items: [ins("min("), ins("max("), ins("mean("), ins("median("), ins("sum("), ins("prod("), ins("stdDev("), ins("variance(")]),
             ])
         case .vars:
             return MenuDef(tabs: [
-                MenuTab(title: "VARS", items: [sub("Window…", .varsWindow), sub("Zoom…", .varsZoom), sub("GDB…", .varsGDB), sub("Picture…", .varsPic), sub("Statistics…", .varsStats), sub("Table…", .varsTable), sub("String…", .varsStr)]),
-                MenuTab(title: "Y-VARS", items: [sub("Function…", .yvars), sub("Parametric…", .yvarsParam), sub("Polar…", .yvarsPolar), sub("On/Off…", .fnOnOff), sub("Sequence…", .yvarsSeq)]),
+                MenuTab(title: "VARS", items: [sub("Window…", .varsWindow), sub("Zoom…", .varsZoom), na("GDB…"), na("Picture…"), sub("Statistics…", .varsStats), sub("Table…", .varsTable), na("String…")]),
+                MenuTab(title: "Y-VARS", items: [sub("Function…", .yvars), na("Parametric…"), na("Polar…"), sub("On/Off…", .fnOnOff)]),
             ])
         case .varsWindow:
             return MenuDef(tabs: [
                 MenuTab(title: "X/Y", items: [ins("Xmin"), ins("Xmax"), ins("Xscl"), ins("Ymin"), ins("Ymax"), ins("Yscl"), ins("Xres")]),
-                MenuTab(title: "T/θ", items: [ins("Tmin"), ins("Tmax"), ins("Tstep"), ins("θmin"), ins("θmax"), ins("θstep")]),
-                MenuTab(title: "U/V/W", items: [ins("nMin"), ins("nMax"), ins("PlotStart"), ins("PlotStep")]),
+                MenuTab(title: "T/θ", items: [na("Tmin"), na("Tmax"), na("Tstep"), na("θmin"), na("θmax"), na("θstep")]),
             ])
         case .varsZoom:
             return MenuDef(tabs: [MenuTab(title: "ZX/ZY", items: [ins("XFact"), ins("YFact")])])
-        case .varsGDB:
-            return MenuDef(tabs: [MenuTab(title: "GRAPH DATABASE", items: (1...10).map { ins("GDB\($0 % 10)") })])
-        case .varsPic:
-            return MenuDef(tabs: [MenuTab(title: "PICTURE", items: (1...10).map { ins("Pic\($0 % 10)") })])
-        case .varsStr:
-            return MenuDef(tabs: [MenuTab(title: "STRING", items: (1...10).map { ins("Str\($0 % 10)") })])
         case .varsStats:
             return MenuDef(tabs: [
                 MenuTab(title: "XY", items: [ins("n"), ins("x̄"), ins("Sx"), ins("σx"), ins("ȳ"), ins("Sy"), ins("σy"), ins("minX"), ins("maxX"), ins("minY"), ins("maxY")]),
                 MenuTab(title: "Σ", items: [ins("Σx"), ins("Σx²"), ins("Σy"), ins("Σy²"), ins("Σxy")]),
                 MenuTab(title: "EQ", items: [cmd("RegEQ", .insertRegEQ), ins("a"), ins("b"), ins("c"), ins("d"), ins("r"), ins("r²")]),
-                MenuTab(title: "TEST", items: [ins("p"), ins("z"), ins("t"), ins("χ²", "χ²"), ins("F"), ins("df"), ins("p̂"), ins("p̂1"), ins("p̂2"), ins("x̄1"), ins("x̄2"), ins("Sx1"), ins("Sx2"), ins("Sxp"), ins("n1"), ins("n2"), ins("lower"), ins("upper"), ins("s")]),
                 MenuTab(title: "PTS", items: [ins("Q1"), ins("Med"), ins("Q3")]),
             ])
         case .varsTable:
             return MenuDef(tabs: [MenuTab(title: "TABLE", items: [ins("TblStart"), ins("ΔTbl")])])
         case .yvars:
             return MenuDef(tabs: [MenuTab(title: "FUNCTION", items: (0...9).map { i in let n = i == 9 ? 0 : i + 1; return ins("Y\(subs[n])") })])
-        case .yvarsParam:
-            return MenuDef(tabs: [MenuTab(title: "PARAMETRIC", items: (1...6).flatMap { [ins("X\(subs[$0])T"), ins("Y\(subs[$0])T")] })])
-        case .yvarsPolar:
-            return MenuDef(tabs: [MenuTab(title: "POLAR", items: (1...6).map { ins("r\(subs[$0])") })])
-        case .yvarsSeq:
-            return MenuDef(tabs: [MenuTab(title: "SEQUENCE", items: [ins("u"), ins("v"), ins("w")])])
         case .fnOnOff:
             return MenuDef(tabs: [MenuTab(title: "ON/OFF", items: [ins("FnOn"), ins("FnOff")])])
         case .matrix:
@@ -130,68 +110,49 @@ enum Menus {
             }
             return MenuDef(tabs: [
                 MenuTab(title: "NAMES", items: letters.map { ins(nameLabel($0), "[\($0)]") }),
-                MenuTab(title: "MATH", items: [ins("det("), ins("ᵀ"), ins("dim("), ins("Fill("), ins("identity("), ins("randM("), ins("augment("), ins("Matr▶list("), ins("List▶matr("), ins("cumSum("), ins("ref("), ins("rref("), ins("rowSwap("), ins("row+("), ins("*row("), ins("*row+(")]),
+                MenuTab(title: "MATH", items: [ins("det("), ins("ᵀ"), ins("dim("), na("Fill("), ins("identity("), ins("randM("), ins("augment("), na("Matr▶list("), na("List▶matr("), ins("cumSum("), ins("ref("), ins("rref("), na("rowSwap("), na("row+("), na("*row("), na("*row+(")]),
                 MenuTab(title: "EDIT", items: letters.map { cmd(nameLabel($0), .matrixEdit($0)) }),
             ])
         case .stat:
             return MenuDef(tabs: [
                 MenuTab(title: "EDIT", items: [cmd("Edit…", .listEditor), ins("SortA("), ins("SortD("), ins("ClrList", "ClrList "), ins("SetUpEditor")]),
-                MenuTab(title: "CALC", items: [cmd("1-Var Stats", .oneVar), cmd("2-Var Stats", .twoVar), cmd("Med-Med", .medMed), cmd("LinReg(ax+b)", .linReg), cmd("QuadReg", .quadReg), cmd("CubicReg", .cubicReg), cmd("QuartReg", .quartReg), cmd("LinReg(a+bx)", .linRegAlt), cmd("LnReg", .lnReg), cmd("ExpReg", .expReg), cmd("PwrReg", .pwrReg), cmd("Logistic", .logistic), cmd("SinReg", .sinReg)]),
-                MenuTab(title: "TESTS", items: StatTest.allCases.map { cmd($0.title + "…", .statTest($0)) } + [ins("ANOVA(")]),
+                MenuTab(title: "CALC", items: [cmd("1-Var Stats", .oneVar), cmd("2-Var Stats", .twoVar), cmd("Med-Med", .medMed), cmd("LinReg(ax+b)", .linReg), cmd("QuadReg", .quadReg), cmd("CubicReg", .cubicReg), cmd("QuartReg", .quartReg), cmd("LinReg(a+bx)", .linRegAlt), cmd("LnReg", .lnReg), cmd("ExpReg", .expReg), cmd("PwrReg", .pwrReg), na("Logistic"), na("SinReg")]),
+                MenuTab(title: "TESTS", items: ["Z-Test…", "T-Test…", "2-SampZTest…", "2-SampTTest…", "1-PropZTest…", "2-PropZTest…", "ZInterval…", "TInterval…", "2-SampZInt…", "2-SampTInt…", "1-PropZInt…", "2-PropZInt…", "χ²-Test…", "χ²GOF-Test…", "2-SampFTest…", "LinRegTTest…", "LinRegTInt…", "ANOVA("].map(na)),
             ])
         case .draw:
             return MenuDef(tabs: [
-                MenuTab(title: "DRAW", items: [cmd("ClrDraw", .clrDraw), ins("Line("), ins("Horizontal", "Horizontal "), ins("Vertical", "Vertical "), ins("Tangent("), ins("DrawF", "DrawF "), ins("Shade("), ins("DrawInv", "DrawInv "), ins("Circle("), ins("Text("), cmd("Pen", .pen)]),
-                MenuTab(title: "POINTS", items: [ins("Pt-On("), ins("Pt-Off("), ins("Pt-Change("), ins("Pxl-On("), ins("Pxl-Off("), ins("Pxl-Change("), ins("pxl-Test(")]),
-                MenuTab(title: "STO", items: [ins("StorePic", "StorePic "), ins("RecallPic", "RecallPic "), ins("StoreGDB", "StoreGDB "), ins("RecallGDB", "RecallGDB ")]),
-                MenuTab(title: "BACKGROUND", items: [ins("BackgroundOn", "BackgroundOn "), ins("BackgroundOff")]),
+                MenuTab(title: "DRAW", items: [cmd("ClrDraw", .clrDraw), ins("Line("), ins("Horizontal", "Horizontal "), ins("Vertical", "Vertical "), na("Tangent("), ins("DrawF", "DrawF "), na("Shade("), na("DrawInv"), ins("Circle("), ins("Text("), na("Pen")]),
+                MenuTab(title: "POINTS", items: [ins("Pt-On("), na("Pt-Off("), na("Pt-Change("), na("Pxl-On("), na("Pxl-Off("), na("Pxl-Change("), na("pxl-Test(")]),
+                MenuTab(title: "STO", items: [na("StorePic"), na("RecallPic"), na("StoreGDB"), na("RecallGDB")]),
+                MenuTab(title: "BACKGROUND", items: [na("BackgroundOn"), na("BackgroundOff")]),
             ])
         case .prgm:
-            let names = store.programs.keys.sorted()
             return MenuDef(tabs: [
-                MenuTab(title: "EXEC", items: builtInPrograms.map { app($0.0, $0.1) } + names.map { cmd($0, .runProgram($0)) }),
-                MenuTab(title: "EDIT", items: names.map { cmd($0, .editProgram($0)) }),
-                MenuTab(title: "NEW", items: [cmd("Create New", .newProgram)]),
-            ])
-        case .prgmCtl:
-            let names = store.programs.keys.sorted()
-            return MenuDef(tabs: [
-                MenuTab(title: "CTL", items: [ins("If", "If "), ins("Then"), ins("Else"), ins("For("), ins("While", "While "), ins("Repeat", "Repeat "), ins("End"), ins("Pause", "Pause "), ins("Lbl", "Lbl "), ins("Goto", "Goto "), ins("IS>("), ins("DS<("), ins("Menu("), ins("prgm"), ins("Return"), ins("Stop"), ins("DelVar", "DelVar "), ins("Wait", "Wait ")]),
-                MenuTab(title: "I/O", items: [ins("Input", "Input "), ins("Prompt", "Prompt "), ins("Disp", "Disp "), ins("DispGraph"), ins("DispTable"), ins("Output("), ins("getKey"), ins("ClrHome"), ins("ClrTable")]),
-                MenuTab(title: "EXEC", items: names.map { ins("prgm" + $0) }),
+                MenuTab(title: "EXEC", items: [MenuItem(label: "GEODASH", action: .app(.geoDash)), MenuItem(label: "TETRIS", action: .app(.tetris))]),
+                MenuTab(title: "EDIT", items: [cmd("GEODASH", .programsReadOnly), cmd("TETRIS", .programsReadOnly)]),
+                MenuTab(title: "NEW", items: [cmd("Create New", .programsReadOnly)]),
             ])
         case .apps:
             return MenuDef(tabs: [MenuTab(title: "APPLICATIONS", items: [
-                app("GeoDash", .geoDash), app("Tetris", .tetris),
+                MenuItem(label: "GeoDash", action: .app(.geoDash)),
+                MenuItem(label: "Tetris", action: .app(.tetris)),
                 MenuItem(label: "Finance…", action: .editor(.tvm)),
-                app("CabriJr", .cabriJr), app("CelSheet", .celSheet), app("Conics", .conics), app("Inequalz", .inequalz),
-                app("PlySmlt2", .plySmlt2), app("Prob Sim", .probSim), app("SciTools", .sciTools), app("Transfrm", .transfrm), app("Vernier", .vernier),
+                na("CabriJr"), na("CelSheet"), na("Conics"), na("Inequalz"), na("PlySmlt2"), na("Prob Sim"), na("SciTools"), na("Transfrm"), na("Vernier"),
             ])])
         case .zoom:
             return MenuDef(tabs: [
-                MenuTab(title: "ZOOM", items: [cmd("ZBox", .zbox), cmd("Zoom In", .zoom(.zoomIn)), cmd("Zoom Out", .zoom(.zoomOut)), cmd("ZDecimal", .zoom(.decimal)), cmd("ZSquare", .zoom(.square)), cmd("ZStandard", .zoom(.standard)), cmd("ZTrig", .zoom(.trig)), cmd("ZInteger", .zoom(.integer)), cmd("ZoomStat", .zoom(.stat)), cmd("ZoomFit", .zoom(.fit)), cmd("ZQuadrant1", .zoom(.quadrant1)), cmd("ZFrac1/2", .zoom(.frac(2))), cmd("ZFrac1/3", .zoom(.frac(3))), cmd("ZFrac1/4", .zoom(.frac(4)))]),
-                MenuTab(title: "MEMORY", items: [cmd("ZPrevious", .zoom(.previous)), cmd("ZoomSto", .zoom(.sto)), cmd("ZoomRcl", .zoom(.rcl)), MenuItem(label: "SetFactors…", action: .editor(.zoomFactors))]),
+                MenuTab(title: "ZOOM", items: [na("ZBox"), cmd("Zoom In", .zoom(.zoomIn)), cmd("Zoom Out", .zoom(.zoomOut)), cmd("ZDecimal", .zoom(.decimal)), cmd("ZSquare", .zoom(.square)), cmd("ZStandard", .zoom(.standard)), cmd("ZTrig", .zoom(.trig)), cmd("ZInteger", .zoom(.integer)), cmd("ZoomStat", .zoom(.stat)), cmd("ZoomFit", .zoom(.fit)), cmd("ZQuadrant1", .zoom(.quadrant1)), na("ZFrac1/2"), na("ZFrac1/3"), na("ZFrac1/4")]),
+                MenuTab(title: "MEMORY", items: [cmd("ZPrevious", .zoom(.previous)), cmd("ZoomSto", .zoom(.sto)), cmd("ZoomRcl", .zoom(.rcl)), na("SetFactors…")]),
             ])
         case .calc:
-            let all = [cmd("value", .calc(.value)), cmd("zero", .calc(.zero)), cmd("minimum", .calc(.minimum)), cmd("maximum", .calc(.maximum)), cmd("intersect", .calc(.intersect)), cmd("dy/dx", .calc(.derivative)), cmd("∫f(x)dx", .calc(.integral))]
-            let items = store.graphType == .function ? all : [all[0], all[5]]
-            return MenuDef(tabs: [MenuTab(title: "CALCULATE", items: items)])
+            return MenuDef(tabs: [MenuTab(title: "CALCULATE", items: [cmd("value", .calc(.value)), cmd("zero", .calc(.zero)), cmd("minimum", .calc(.minimum)), cmd("maximum", .calc(.maximum)), cmd("intersect", .calc(.intersect)), cmd("dy/dx", .calc(.derivative)), cmd("∫f(x)dx", .calc(.integral))])])
         case .mem:
-            return MenuDef(tabs: [MenuTab(title: "MEMORY", items: [cmd("About", .about), sub("Mem Management/Delete…", .memMgmt), cmd("Clear Entries", .clearEntries), ins("ClrAllLists"), cmd("Archive…", .varList(.archive)), cmd("UnArchive…", .varList(.unarchive)), sub("Reset…", .reset), sub("Group…", .group), cmd("Garbage Collect…", .confirm(.garbageCollect))])])
-        case .memMgmt:
-            let cats = ["All", "Real", "Complex", "List", "Matrix", "Y-Vars", "Prgm", "Pic", "GDB", "String", "Apps", "AppVars", "Group"]
-            return MenuDef(tabs: [MenuTab(title: "RAM FREE \(MemoryModel.ramFree(store))", items: cats.map { cmd($0 + "…", .varList(.manage($0))) })])
-        case .group:
-            let names = store.groups.keys.sorted()
-            return MenuDef(tabs: [
-                MenuTab(title: "GROUP", items: [cmd("Create New", .createGroup)]),
-                MenuTab(title: "UNGROUP", items: names.map { cmd($0, .ungroup($0)) }),
-            ])
+            return MenuDef(tabs: [MenuTab(title: "MEMORY", items: [cmd("About", .about), cmd("Mem Management/Delete…", .memMgmt), cmd("Clear Entries", .clearEntries), ins("ClrAllLists"), na("Archive…"), na("UnArchive…"), sub("Reset…", .reset), na("Group…"), na("Garbage Collect…")])])
         case .reset:
             return MenuDef(tabs: [
-                MenuTab(title: "RAM", items: [cmd("All RAM…", .confirm(.resetRAM)), cmd("Defaults…", .confirm(.resetDefaults))]),
-                MenuTab(title: "ARCHIVE", items: [cmd("Vars…", .confirm(.resetArchiveVars)), cmd("Apps…", .confirm(.resetArchiveApps)), cmd("Both…", .confirm(.resetArchiveBoth))]),
-                MenuTab(title: "ALL", items: [cmd("All Memory…", .confirm(.resetRAM))]),
+                MenuTab(title: "RAM", items: [cmd("All RAM…", .resetAll), cmd("Defaults…", .resetDefaults)]),
+                MenuTab(title: "ARCHIVE", items: [na("Vars…"), na("Apps…"), na("Both…")]),
+                MenuTab(title: "ALL", items: [cmd("All Memory…", .resetAll)]),
             ])
         case .link:
             return MenuDef(tabs: [
@@ -213,65 +174,13 @@ enum Menus {
         case .catalog:
             var names = Functions.allNames.map { $0 + "(" }
             names += Tokenizer.commands
-            names += Tokenizer.programCommands
             names += Tokenizer.postfixes.filter { $0 != "⁻¹" }
-            names += ["and", "or", "xor", "nCr", "nPr", "rand", "Ans", "π", "e", "!", "°", "ʳ", "ᵀ", "²", "³", "ˣ√", "√(", "=", "≠", "≥", "≤", "→", "getKey", "prgm"]
+            names += ["and", "or", "xor", "nCr", "nPr", "rand", "Ans", "π", "e", "!", "°", "ʳ", "ᵀ", "²", "³", "ˣ√", "√(", "=", "≠", "≥", "≤", "→"]
             names = Array(Set(names)).sorted { $0.lowercased() < $1.lowercased() }
             return MenuDef(tabs: [MenuTab(title: "CATALOG", items: names.map { name in
                 if name == "and" || name == "or" || name == "xor" || name == "nCr" || name == "nPr" { return ins(name, " \(name) ") }
-                if Tokenizer.programCommands.contains(name), !name.hasSuffix("(") { return ins(name, name + " ") }
                 return ins(name)
             })])
         }
     }
-}
-
-/// Fake-but-consistent byte accounting for the MEM screens.
-enum MemoryModel {
-    static let ramTotal = 154_164
-    static let arcTotal = 3_020_000
-
-    struct Item {
-        let name: String
-        let category: String
-        let bytes: Int
-    }
-
-    static func items(_ store: VariableStore) -> [Item] {
-        var out: [Item] = []
-        for (k, v) in store.reals.sorted(by: { $0.key < $1.key }) { _ = v; out.append(Item(name: k, category: "Real", bytes: 15)) }
-        for k in ["L1", "L2", "L3", "L4", "L5", "L6"] where !(store.lists[k] ?? []).isEmpty {
-            out.append(Item(name: k, category: "List", bytes: 12 + 9 * (store.lists[k]?.count ?? 0)))
-        }
-        for (k, m) in store.matrices.sorted(by: { $0.key < $1.key }) {
-            let (r, c) = Matrix.dims(m)
-            out.append(Item(name: "[\(k)]", category: "Matrix", bytes: 12 + 9 * r * c))
-        }
-        for n in [1, 2, 3, 4, 5, 6, 7, 8, 9, 0] where !(store.yFuncs[n] ?? "").isEmpty {
-            out.append(Item(name: "Y\(n)", category: "Y-Vars", bytes: 9 + (store.yFuncs[n]?.count ?? 0)))
-        }
-        for (k, v) in store.funcs.sorted(by: { $0.key < $1.key }) where !v.isEmpty {
-            out.append(Item(name: k, category: "Y-Vars", bytes: 9 + v.count))
-        }
-        for (k, v) in store.programs.sorted(by: { $0.key < $1.key }) {
-            out.append(Item(name: "prgm" + k, category: "Prgm", bytes: 9 + v.reduce(0) { $0 + $1.count + 1 }))
-        }
-        for (k, v) in store.pics.sorted(by: { $0.key < $1.key }) { out.append(Item(name: "Pic\(k)", category: "Pic", bytes: 767 + 8 * v.count)) }
-        for (k, _) in store.gdbs.sorted(by: { $0.key < $1.key }) { out.append(Item(name: "GDB\(k)", category: "GDB", bytes: 178)) }
-        for (k, v) in store.strings.sorted(by: { $0.key < $1.key }) { out.append(Item(name: "Str\(k)", category: "String", bytes: 9 + v.count)) }
-        for (k, _) in store.groups.sorted(by: { $0.key < $1.key }) { out.append(Item(name: "group " + k, category: "Group", bytes: 512)) }
-        return out
-    }
-
-    static func ramFree(_ store: VariableStore) -> Int {
-        let used = items(store).filter { !store.archived.contains($0.name) }.reduce(0) { $0 + $1.bytes }
-        return max(0, ramTotal - used - store.entries.reduce(0) { $0 + $1.count })
-    }
-
-    static func arcFree(_ store: VariableStore) -> Int {
-        let used = items(store).filter { store.archived.contains($0.name) }.reduce(0) { $0 + $1.bytes }
-        return max(0, arcTotal - used)
-    }
-
-    static func arcFreeText(_ store: VariableStore) -> String { "\(arcFree(store) / 1000)K" }
 }

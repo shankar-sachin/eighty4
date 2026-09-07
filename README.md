@@ -20,30 +20,25 @@ A TI-84 Plus CE replica for iPhone, built in SwiftUI. No ROM, no emulation: the 
 
 **Math engine**
 - Reals, fractions (`▶Frac`), lists (`{1,2,3}`, L₁–L₆), and matrices (`[[1,2][3,4]]`, [A]–[J]) with TI precedence, implicit multiplication, and `→` store into A–Z, θ, lists, matrices, and Y-vars.
-- MATH: `▶Frac ▶Dec ³ ³√( ˣ√ fMin( fMax( nDeriv( fnInt( Σ( logBASE(` and the numeric **Solver** (eqn:0=, variable list, alpha+ENTER solves), NUM, CMPLX (real-valued), PROB (`rand nPr nCr ! randInt( randNorm( randBin( randIntNoRep(`), FRAC with `Un/d` mixed numbers (`3_1/2`).
+- MATH: `▶Frac ▶Dec ³ ³√( ˣ√ fMin( fMax( nDeriv( fnInt( Σ( logBASE(`, NUM, CMPLX (real-valued), PROB (`rand nPr nCr ! randInt( randNorm( randBin( randIntNoRep(`), FRAC.
 - TEST and LOGIC operators, ANGLE (`° ' ʳ ▶DMS R▶Pr( R▶Pθ( P▶Rx( P▶Ry(`), radian/degree modes.
-- LIST OPS and MATH (`SortA( SortD( dim( Fill( seq( cumSum( ΔList( augment( min( max( mean( median( sum( prod( stdDev( variance(`).
-- MATRIX MATH (`det( ᵀ dim( Fill( identity( randM( augment( Matr▶list( List▶matr( cumSum( ref( rref( rowSwap( row+( *row( *row+(`), inverse, powers, and a spreadsheet-style matrix editor.
-- DISTR: `normalpdf normalcdf invNorm invT tpdf tcdf χ²pdf χ²cdf Fpdf Fcdf binompdf binomcdf poissonpdf poissoncdf geometpdf geometcdf`, and DRAW `ShadeNorm( Shade_t( Shadeχ²( ShadeF(` shade the density on the graph screen.
-- STAT: list editor for L₁–L₆, CALC with 1-Var Stats, 2-Var Stats, Med-Med, LinReg (both forms), QuadReg, CubicReg, QuartReg, LnReg, ExpReg, PwrReg, Logistic, SinReg. Results land in the VARS Statistics variables and `RegEQ`.
-- STAT TESTS: all 17 editors (Z-Test, T-Test, 2-Samp Z/T, 1-Prop/2-Prop Z, the Z/T/prop intervals, χ²-Test, χ²GOF-Test, 2-SampFTest, LinRegTTest, LinRegTInt) with Data/Stats input, Calculate or Draw (shaded p-value), plus `ANOVA(`. Results go to VARS Statistics TEST.
-- Strings: `"…"→Str1`, concatenation with `+`, `length( sub( inString( expr(`.
-- Commands: `ClrHome ClrDraw ClrAllLists ClrList PlotsOn/Off Degree Radian Float Fix Normal Sci Eng Func Param Polar Seq FnOn FnOff AxesOn/Off Grid… Coord… Label… Expr… ZStandard … ZFrac1/2 StorePic RecallPic StoreGDB RecallGDB BackgroundOn/Off`, and the DRAW commands `Line( Circle( Tangent( Shade( DrawF DrawInv Pt-On( Pt-Off( Pt-Change( Pxl-On( Pxl-Off( Pxl-Change( pxl-Test( Text( Horizontal Vertical`. Pen draws free-hand on the graph.
+- LIST OPS and MATH (`SortA( SortD( dim( seq( cumSum( ΔList( augment( min( max( mean( median( sum( prod( stdDev( variance(`).
+- MATRIX MATH (`det( ᵀ dim( identity( randM( augment( cumSum( ref( rref(`), inverse, powers, and a spreadsheet-style matrix editor.
+- DISTR: `normalpdf normalcdf invNorm invT tpdf tcdf χ²pdf χ²cdf Fpdf Fcdf binompdf binomcdf poissonpdf poissoncdf geometpdf geometcdf`.
+- STAT: list editor for L₁–L₆, and CALC with 1-Var Stats, 2-Var Stats, LinReg (both forms), QuadReg, CubicReg, QuartReg, LnReg, ExpReg, PwrReg. Results land in the VARS Statistics variables and `RegEQ`.
+- Commands: `ClrHome ClrDraw ClrAllLists ClrList PlotsOn/Off Degree Radian Float Fix Normal Sci Eng FnOn FnOff AxesOn/Off Grid… Coord… Label… Expr… ZStandard …` and the DRAW commands `Line( Circle( Pt-On( Text( Horizontal Vertical DrawF`.
 
 **Graphing**
-- All four MODE graph types: FUNCTION (Y₁–Y₀), PARAM (X₁T/Y₁T…), POLAR (r₁–r₆) and SEQ (u, v, w with nMin and u(nMin), recursive definitions like `u(n−1)+u(n−2)`). The Y= and WINDOW editors change with the mode (Tmin/Tmax/Tstep, θmin…, nMin/nMax/PlotStart/PlotStep).
-- Y= editor with function on/off (← onto the `=`), WINDOW editor, FORMAT (grid, axes, labels, coordinates, expression), ZOOM (ZBox, Zoom In/Out, ZDecimal, ZSquare, ZStandard, ZTrig, ZInteger, ZoomStat, ZoomFit, ZQuadrant1, ZFrac1/2 1/3 1/4, ZPrevious, ZoomSto/Rcl, SetFactors).
-- GRAPH plots every enabled function in its TI color, plus STAT PLOT scatter / xyLine plots, DRAW objects, pictures and BackgroundOn colors.
-- TRACE with ←/→ (steps of Tstep/θstep/PlotStep in the other modes), ↑/↓ to switch functions, or type a value.
+- Y= editor for Y₁–Y₀ with function on/off, WINDOW editor, FORMAT (grid, axes, labels, coordinates, expression), ZOOM (Zoom In/Out, ZDecimal, ZSquare, ZStandard, ZTrig, ZInteger, ZoomStat, ZoomFit, ZQuadrant1, ZPrevious, ZoomSto/Rcl).
+- GRAPH plots every enabled function in its TI color, plus STAT PLOT scatter / xyLine plots and DRAW objects.
+- TRACE with ←/→, ↑/↓ to switch functions, or type an X value.
 - CALC: value, zero, minimum, maximum, intersect, dy/dx, ∫f(x)dx with the real bound / guess prompts.
-- TABLE with TBLSET (TblStart, ΔTbl), scrolling in both directions, columns per graph mode.
-- VARS: Window (X/Y, T/θ, U/V/W), Zoom, GDB, Picture, Statistics (incl. TEST), Table, String; Y-VARS Function / Parametric / Polar / Sequence / On-Off.
+- TABLE with TBLSET (TblStart, ΔTbl), scrolling in both directions.
 
 **Everything else on the keypad**
 - MODE, FORMAT, TBLSET, STAT PLOT editors that look and navigate like the originals.
-- APPS: **GeoDash** (one level, ↑/enter to jump), **Tetris** (←→ move, ↑ rotate, ↓ soft drop, enter hard drop), **Finance** (a working TVM Solver; alpha+ENTER solves the highlighted row), **CabriJr** (points, segments, lines, circles, triangles, distance), **CelSheet** (spreadsheet with A1-style formulas and ranges), **Conics** (graph + center/vertices/foci/eccentricity), **Inequalz** (Y= relations shaded on the graph), **PlySmlt2** (polynomial roots incl. complex, simultaneous equations), **Prob Sim** (coins, dice, marbles, spinner, cards, random numbers), **SciTools** (sig-fig calculator, unit converter, data wizard, vector calculator), **Transfrm** (Y₁ with live A B C D sliders) and **Vernier EasyData** (sensor front-end; reports no sensor without hardware).
-- PRGM: EXEC runs the two games and your TI-BASIC programs, EDIT opens the program editor (PRGM key inside it shows the CTL / I/O / EXEC menus), NEW creates one. The interpreter handles `Disp Input Prompt Output( ClrHome Pause If/Then/Else For( While Repeat End Lbl Goto Menu( IS>( DS<( Return Stop DelVar DispGraph DispTable getKey prgmNAME` and every expression/command the home screen accepts. Errors offer 2:Goto into the editor.
-- MEM: About, Mem Management/Delete by category (DEL deletes, ENTER archives), Clear Entries, Archive/UnArchive, Reset (RAM, defaults, ARCHIVE vars/apps/both with the 1:No 2:Reset screens), Group/Ungroup, Garbage Collect. LINK shows the send/receive flow. CATALOG lists every token, alphabetically, with letter jumps.
+- APPS: **GeoDash** (one level, ↑/enter to jump), **Tetris** (←→ move, ↑ rotate, ↓ soft drop, enter hard drop), and **Finance** (a working TVM Solver; alpha+ENTER solves the highlighted row).
+- PRGM EXEC runs the two games. MEM has About, memory management, Clear Entries, and Reset. LINK shows the send/receive flow. CATALOG lists every token, alphabetically, with letter jumps.
 - 2nd+OFF turns the screen off; ON turns it back on.
 
 ## Building
@@ -75,10 +70,6 @@ Useful for screenshots. `-demo` wipes saved memory first.
 | `-demo yeq`, `graph`, `trace`, `calc`, `table` | Graphing flow for Y₁=X²−4, Y₂=2X+1 |
 | `-demo matrix`, `matrixcalc`, `stat`, `statcalc` | Matrix and list editors, LinReg |
 | `-demo geodash`, `tetris`, `tvm` | Apps |
-| `-demo solver`, `param`, `polar`, `seq`, `seqyeq`, `zbox`, `shade` | Solver, graph modes, ZBox, ShadeNorm |
-| `-demo ztest`, `ztestedit`, `ztestdraw` | STAT TESTS editor, results and DRAW |
-| `-demo prgm`, `prgmedit`, `mem` | Program run / editor, MEM management |
-| `-demo plysmlt`, `conics`, `probsim`, `celsheet` | The new apps |
 | `-shell radicalRed` | Force a shell colorway (any `ShellColor` raw value) |
 
 Example:
@@ -94,16 +85,15 @@ project.yml            xcodegen spec (targets, version, Info.plist keys)
 Eighty4/
   Eighty4App.swift     entry point + demo scripts
   Models/              KeySpec, Keymap (all 50 keys with 2nd/alpha labels), Shell colors
-  Engine/              Tokenizer → Parser → Functions / Stats / StatTests / Sequences / Solver / Programs (TI-BASIC), VariableStore
+  Engine/              Tokenizer → Parser → Functions / Stats / Value / Formatter, VariableStore
   State/               Screens, Menus, Editors, Graphing, CalculatorState, KeyHandler
-  Apps/                Game protocol + AppKit helpers, GeoDash, Tetris, CabriJr, CelSheet, Conics, Inequalz, PlySmlt2, ProbSim, SciTools, Transfrm, Vernier
-  Views/               Layout (0.1 mm design units), body, keypad, LCD, graph renderer and screen views
+  Apps/                Game protocol, GeoDash, Tetris
+  Views/               Layout (0.1 mm design units), body, keypad, LCD and screen views
 Eighty4Tests/          engine + key-flow unit tests
 assets/logo.png        source logo (app icon + wordmark badge)
 ```
 
 ## Version history
 
-- **0.3.0** — Nothing says "not available" any more: MATH Solver, Un/d, DISTR DRAW shading, Fill/Matr▶list/List▶matr/row ops, GDB/Pic/String variables, PARAM/POLAR/SEQ graphing with matching Y=/WINDOW/TABLE, all STAT TESTS + ANOVA + Logistic/SinReg, DRAW Tangent/Shade/DrawInv/Pen/pixel ops/StorePic/BackgroundOn, ZBox/ZFrac/SetFactors, MEM archive/groups/garbage collect/reset archive with confirm screens, a TI-BASIC program editor + interpreter, and nine more apps (CabriJr, CelSheet, Conics, Inequalz, PlySmlt2, Prob Sim, SciTools, Transfrm, Vernier).
 - **0.2.0** — Every 2nd function and menu key works: menus, MODE/FORMAT/WINDOW/TBLSET/STAT PLOT editors, Y= and graphing with TRACE / CALC / TABLE / ZOOM, lists, matrices and their editors, stats and regressions, distributions, TVM solver, CATALOG, MEM, LINK, GeoDash and Tetris apps, shell color button, LCD fills the bezel, ENTER works under 2nd/alpha, history recall on ↑/↓.
 - **0.1.0** — Faithful body and keypad, home-screen arithmetic, shell colorways.

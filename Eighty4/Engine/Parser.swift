@@ -54,12 +54,6 @@ struct Parser {
         case .yVar(let n):
             guard case .str(let s) = v else { throw CalcError.dataType }
             store.yFuncs[n] = s
-        case .namedFunc(let key):
-            guard case .str(let s) = v else { throw CalcError.dataType }
-            store.setFuncText(key, s)
-        case .strVar(let n):
-            guard case .str(let s) = v else { throw CalcError.dataType }
-            store.strings[n] = s
         default:
             throw CalcError.syntax
         }
@@ -124,13 +118,6 @@ struct Parser {
             advance()
             return try (try unary()).negated()
         }
-        // Mixed number a_b/c (FRAC Un/d template).
-        if pos + 4 < tokens.count, case .number(let a) = tokens[pos], tokens[pos + 1] == .op(.mixed),
-           case .number(let b) = tokens[pos + 2], tokens[pos + 3] == .op(.div), case .number(let c) = tokens[pos + 4],
-           a.rounded() == a, b.rounded() == b, c.rounded() == c, c > 0 {
-            pos += 5
-            return .fraction(Int(a) * Int(c) + Int(b), Int(c))
-        }
         return try power()
     }
 
@@ -173,15 +160,7 @@ struct Parser {
         case .e: advance(); return .num(M_E)
         case .ans: advance(); return store.ans
         case .nullary(let name): advance(); return try Functions.call(name, [], ctx)
-        case .variable(let name):
-            advance()
-            if ["u", "v", "w"].contains(name), peek == .lparen {
-                advance()
-                let n = try expr().number()
-                try closeParen()
-                return .num(try Sequences.value(name, n: Int(n.rounded()), store: store, depth: ctx.depth))
-            }
-            return .num(store.lookupReal(name))
+        case .variable(let name): advance(); return .num(store.lookupReal(name))
         case .listVar(let name):
             advance()
             guard let l = store.lists[name] else { throw CalcError.undefined }
@@ -192,14 +171,7 @@ struct Parser {
             return .matrix(m)
         case .yVar(let n):
             advance()
-            return try evalFunc("Y\(n)")
-        case .namedFunc(let key):
-            advance()
-            return try evalFunc(key)
-        case .strVar(let n):
-            advance()
-            guard let s = store.strings[n] else { throw CalcError.undefined }
-            return .str(s)
+            return try evalY(n)
         case .lparen:
             advance()
             let v = try expr()
@@ -253,9 +225,9 @@ struct Parser {
         }
     }
 
-    private func evalFunc(_ key: String) throws -> Value {
+    private func evalY(_ n: Int) throws -> Value {
         guard ctx.depth < 8 else { throw CalcError.undefined }
-        guard let text = ctx.store.funcText(key), !text.isEmpty else { throw CalcError.undefined }
+        guard let text = ctx.store.yFuncs[n], !text.isEmpty else { throw CalcError.undefined }
         var sub = EvalContext(store: ctx.store, depth: ctx.depth + 1)
         sub.depth = ctx.depth + 1
         var p = Parser(tokens: try Tokenizer.tokenize(text), ctx: sub)
@@ -290,14 +262,10 @@ struct Parser {
         return slices
     }
 
-    private func evalSliceValue(_ slice: [Token]) throws -> Value {
+    private func evalSlice(_ slice: [Token]) throws -> Double {
         guard !slice.isEmpty else { throw CalcError.syntax }
         var p = Parser(tokens: slice, ctx: EvalContext(store: ctx.store, depth: ctx.depth + 1))
-        return try p.parseStatement()
-    }
-
-    private func evalSlice(_ slice: [Token]) throws -> Double {
-        try evalSliceValue(slice).number()
+        return try p.parseStatement().number()
     }
 
     private func evalSlice(_ slice: [Token], with name: String, equal value: Double) throws -> Double {
@@ -308,13 +276,8 @@ struct Parser {
         return try evalSlice(slice)
     }
 
-    private func sliceText(_ slice: [Token]) -> String {
-        slice.map { Tokenizer.describe($0) }.joined()
-    }
-
     private mutating func callLazy(_ name: String) throws -> Value {
         let slices = try collectArgSlices()
-        let store = ctx.store
         func varName(_ i: Int) throws -> String {
             guard i < slices.count, slices[i].count == 1, case .variable(let v) = slices[i][0] else { throw CalcError.argument }
             return v
@@ -381,62 +344,6 @@ struct Parser {
                 sum += (i % 2 == 0 ? 2 : 4) * (try evalSlice(slices[0], with: v, equal: x))
             }
             return .num(sum * h / 3)
-        case "Fill":
-            // Fill(value, Ln) or Fill(value, [A])
-            guard slices.count == 2, slices[1].count == 1 else { throw CalcError.argument }
-            let value = try evalSlice(slices[0])
-            switch slices[1][0] {
-            case .listVar(let l):
-                store.lists[l] = (store.lists[l] ?? []).map { _ in value }
-            case .matVar(let m):
-                guard let mm = store.matrices[m] else { throw CalcError.undefined }
-                store.matrices[m] = mm.map { $0.map { _ in value } }
-            default: throw CalcError.argument
-            }
-            return .str("Done")
-        case "Matr▶list":
-            // Matr▶list([A], L1, L2…) or Matr▶list([A], col, L1)
-            guard slices.count >= 2, slices[0].count == 1, case .matVar(let m) = slices[0][0], let mm = store.matrices[m] else { throw CalcError.argument }
-            let cols = Matrix.transpose(mm)
-            if slices.count == 3, slices[2].count == 1, case .listVar(let l) = slices[2][0], slices[1].count == 1, case .number(let c) = slices[1][0] {
-                let ci = Int(c) - 1
-                guard ci >= 0, ci < cols.count else { throw CalcError.invalidDim }
-                store.lists[l] = cols[ci]
-                return .str("Done")
-            }
-            for (i, s) in slices.dropFirst().enumerated() {
-                guard s.count == 1, case .listVar(let l) = s[0] else { throw CalcError.argument }
-                guard i < cols.count else { break }
-                store.lists[l] = cols[i]
-            }
-            return .str("Done")
-        case "List▶matr":
-            // List▶matr(L1, L2, …, [A])
-            guard slices.count >= 2, slices.last!.count == 1, case .matVar(let m) = slices.last![0] else { throw CalcError.argument }
-            var cols: [[Double]] = []
-            for s in slices.dropLast() { cols.append(try evalSliceValue(s).listValue()) }
-            let rows = cols.map(\.count).max() ?? 0
-            guard rows > 0 else { throw CalcError.invalidDim }
-            store.matrices[m] = (0..<rows).map { r in cols.map { r < $0.count ? $0[r] : 0 } }
-            return .str("Done")
-        case "Tangent":
-            guard slices.count == 2 else { throw CalcError.argument }
-            let x = try evalSlice(slices[1])
-            store.drawings.append(.tangent(sliceText(slices[0]), x))
-            store.pendingShowGraph = true
-            return .str("Done")
-        case "Shade":
-            guard slices.count >= 2 else { throw CalcError.argument }
-            let xl = slices.count > 2 ? try evalSlice(slices[2]) : nil
-            let xr = slices.count > 3 ? try evalSlice(slices[3]) : nil
-            store.drawings.append(.shade(sliceText(slices[0]), sliceText(slices[1]), xl, xr))
-            store.pendingShowGraph = true
-            return .str("Done")
-        case "expr":
-            guard slices.count == 1 else { throw CalcError.argument }
-            guard case .str(let s) = try evalSliceValue(slices[0]) else { throw CalcError.dataType }
-            guard ctx.depth < 8 else { throw CalcError.undefined }
-            return try Evaluator.evaluate(s, ctx: EvalContext(store: store, depth: ctx.depth + 1))
         default:
             throw CalcError.syntax
         }
@@ -514,17 +421,6 @@ enum Commands {
             var p = Parser(tokens: [args[i]], ctx: ctx)
             return try p.parseStatement().number()
         }
-        /// Picture / GDB number from either "Pic3" or a plain number.
-        func slot() throws -> Int {
-            guard let t = args.first else { throw CalcError.argument }
-            switch t {
-            case .picVar(let n), .gdbVar(let n): return n
-            default:
-                let n = Int(try arg(0))
-                guard (0...9).contains(n) else { throw CalcError.argument }
-                return n
-            }
-        }
         switch name {
         case "ClrHome": store.pendingClrHome = true
         case "ClrDraw": store.drawings = []
@@ -540,10 +436,6 @@ enum Commands {
         case "Normal": store.options["notation"] = 0
         case "Sci": store.options["notation"] = 1
         case "Eng": store.options["notation"] = 2
-        case "Func": store.options["graph"] = 0
-        case "Param": store.options["graph"] = 1
-        case "Polar": store.options["graph"] = 2
-        case "Seq": store.options["graph"] = 3
         case "FnOn", "FnOff":
             let on = name == "FnOn"
             let targets = args.compactMap { t -> Int? in if case .yVar(let n) = t { return n }; return nil }
@@ -584,9 +476,6 @@ enum Commands {
         case "ZoomIn": Graphing.zoom(.zoomIn, store: store)
         case "ZoomOut": Graphing.zoom(.zoomOut, store: store)
         case "ZQuadrant1": Graphing.zoom(.quadrant1, store: store)
-        case "ZFrac1/2": Graphing.zoom(.frac(2), store: store)
-        case "ZFrac1/3": Graphing.zoom(.frac(3), store: store)
-        case "ZFrac1/4": Graphing.zoom(.frac(4), store: store)
         case "Horizontal":
             store.drawings.append(.horizontal(try arg(0))); store.pendingShowGraph = true
         case "Vertical":
@@ -594,23 +483,6 @@ enum Commands {
         case "DrawF":
             let text = args.map { Tokenizer.describe($0) }.joined()
             store.drawings.append(.function(text)); store.pendingShowGraph = true
-        case "DrawInv":
-            let text = args.map { Tokenizer.describe($0) }.joined()
-            store.drawings.append(.inverse(text)); store.pendingShowGraph = true
-        case "StorePic": store.pics[try slot()] = store.drawings
-        case "RecallPic":
-            guard let p = store.pics[try slot()] else { throw CalcError.undefined }
-            store.drawings += p.filter { !store.drawings.contains($0) }
-            store.pendingShowGraph = true
-        case "StoreGDB": store.gdbs[try slot()] = store.graphDatabase()
-        case "RecallGDB":
-            guard let g = store.gdbs[try slot()] else { throw CalcError.undefined }
-            store.recall(g)
-        case "BackgroundOn":
-            let n = Int(try arg(0))
-            guard (10...24).contains(n) else { throw CalcError.argument }
-            store.options["background"] = n
-        case "BackgroundOff": store.options["background"] = 0
         default:
             throw CalcError.syntax
         }
@@ -630,7 +502,7 @@ extension Tokenizer {
             case .add: return "+"; case .sub: return "−"; case .mul: return "×"; case .div: return "÷"; case .pow: return "^"
             case .nthRoot: return "ˣ√"; case .nCr: return " nCr "; case .nPr: return " nPr "
             case .eq: return "="; case .ne: return "≠"; case .gt: return ">"; case .ge: return "≥"; case .lt: return "<"; case .le: return "≤"
-            case .and: return " and "; case .or: return " or "; case .xor: return " xor "; case .mixed: return "_"
+            case .and: return " and "; case .or: return " or "; case .xor: return " xor "
             }
         case .negate: return "⁻"
         case .postfix(let p): return p
@@ -643,11 +515,6 @@ extension Tokenizer {
         case .listVar(let l): return "L" + subscripts[Int(l.dropFirst()) ?? 1]
         case .matVar(let m): return "[\(m)]"
         case .yVar(let n): return "Y" + subscripts[n]
-        case .namedFunc(let k): return namedFuncLabel(k)
-        case .strVar(let n): return "Str\(n)"
-        case .picVar(let n): return "Pic\(n)"
-        case .gdbVar(let n): return "GDB\(n)"
-        case .prgm(let p): return "prgm" + p
         case .command(let c): return c
         }
     }

@@ -14,9 +14,6 @@ enum CalcError: Error, Equatable {
     case noSignChange
     case badGuess
     case windowRange
-    case breakKey
-    case label
-    case iterations
 
     var message: String {
         switch self {
@@ -33,9 +30,6 @@ enum CalcError: Error, Equatable {
         case .noSignChange: return "ERR:NO SIGN CHNG"
         case .badGuess: return "ERR:BAD GUESS"
         case .windowRange: return "ERR:WINDOW RANGE"
-        case .breakKey: return "ERR:BREAK"
-        case .label: return "ERR:LABEL"
-        case .iterations: return "ERR:ITERATIONS"
         }
     }
 }

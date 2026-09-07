@@ -4,7 +4,6 @@ enum BinaryOp: Equatable {
     case add, sub, mul, div, pow, nthRoot, nCr, nPr
     case eq, ne, gt, ge, lt, le
     case and, or, xor
-    case mixed   // Un/d mixed-number separator "_"
 }
 
 /// A TI-84 value: real number, fraction display form, list, matrix, or string.
@@ -58,11 +57,6 @@ enum Value: Equatable {
 
     static func apply(_ op: BinaryOp, _ a: Value, _ b: Value) throws -> Value {
         switch (a, b) {
-        case (.str(let x), .str(let y)):
-            if op == .add { return .str(x + y) }
-            if op == .eq { return .num(x == y ? 1 : 0) }
-            if op == .ne { return .num(x != y ? 1 : 0) }
-            throw CalcError.dataType
         case (.matrix(let m), .matrix(let n)):
             return .matrix(try Matrix.binary(op, m, n))
         case (.matrix(let m), _):
@@ -115,7 +109,6 @@ enum Value: Equatable {
         case .and: return (x != 0 && y != 0) ? 1 : 0
         case .or: return (x != 0 || y != 0) ? 1 : 0
         case .xor: return ((x != 0) != (y != 0)) ? 1 : 0
-        case .mixed: throw CalcError.syntax
         }
     }
 

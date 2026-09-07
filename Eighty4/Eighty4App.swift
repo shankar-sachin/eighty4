@@ -66,45 +66,6 @@ enum DemoScripts {
         case "tvm": keys([.apps, .three, .three, .six, .zero, .enter, .six, .enter, .two, .five, .zero, .zero, .zero, .zero, .enter, .zero, .enter, .zero, .down, .one, .two, .enter, .one, .two, .enter, .up, .up, .up, .up, .alpha, .enter])
         case "off": keys([.second, .on])
         case "second": keys([.second])
-        case "solver":
-            // X²−4=0, solve for X from a guess of 1
-            keys([.math, .up, .enter, .xtn, .square, .minus, .four, .enter, .one, .alpha, .enter])
-        case "param":
-            // MODE → PARAM, X1T=3cos(T), Y1T=3sin(T), ZStandard
-            keys([.mode, .down, .down, .down, .right, .enter, .second, .mode, .yEquals, .three, .cos, .xtn, .rparen, .down, .three, .sin, .xtn, .rparen, .zoom, .six])
-        case "polar":
-            keys([.mode, .down, .down, .down, .right, .right, .enter, .second, .mode, .yEquals, .four, .cos, .three, .xtn, .rparen, .zoom, .six])
-        case "seq":
-            // u(n)=u(n−1)+2, u(nMin)=1
-            keys([.mode, .down, .down, .down, .right, .right, .right, .enter, .second, .mode, .yEquals, .down, .second, .seven, .lparen, .xtn, .minus, .one, .rparen, .plus, .two, .down, .one, .zoom, .six])
-        case "ztest":
-            // STAT TESTS 1:Z-Test, Stats input, μ0=5 σ=2 x̄=5.8 n=20, Calculate
-            keys([.stat, .left, .enter, .right, .enter, .five, .enter, .two, .enter, .five, .dot, .eight, .enter, .two, .zero, .enter, .down, .enter])
-        case "ztestdraw":
-            keys([.stat, .left, .enter, .right, .enter, .five, .enter, .two, .enter, .five, .dot, .eight, .enter, .two, .zero, .enter, .down, .right, .enter])
-        case "shade":
-            keys([.zoom, .four, .second, .vars, .right, .enter, .negate, .one, .comma, .one, .rparen, .enter])
-        case "zbox":
-            keys(yeq + [.zoom, .six, .zoom, .one, .enter, .right, .right, .right, .right, .right, .right, .down, .down, .down, .down])
-        case "prgmedit":
-            // NEW program AB: ":Disp 5" / ":For(I,1,3" / ":Disp I×I" / ":End"
-            keys([.prgm, .right, .right, .enter, .math, .apps, .enter, .prgm, .right, .three, .five, .enter,
-                  .prgm, .four, .alpha, .square, .comma, .one, .comma, .three, .enter,
-                  .prgm, .right, .three, .alpha, .square, .multiply, .alpha, .square, .enter, .prgm, .seven])
-        case "prgm":
-            keys([.prgm, .right, .right, .enter, .math, .apps, .enter, .prgm, .right, .three, .five, .enter,
-                  .prgm, .four, .alpha, .square, .comma, .one, .comma, .three, .enter,
-                  .prgm, .right, .three, .alpha, .square, .multiply, .alpha, .square, .enter, .prgm, .seven,
-                  .second, .mode, .prgm, .three])
-        case "seqyeq":
-            keys([.mode, .down, .down, .down, .right, .right, .right, .enter, .second, .mode, .yEquals, .down, .second, .seven, .lparen, .xtn, .minus, .one, .rparen, .plus, .two, .down, .one, .down])
-        case "ztestedit":
-            keys([.stat, .left, .enter, .right, .enter, .five, .enter, .two, .enter, .five, .dot, .eight, .enter, .two, .zero, .enter])
-        case "plysmlt": keys([.apps, .eight, .enter, .right, .graph, .one, .enter, .negate, .three, .enter, .two, .graph])
-        case "conics": keys([.apps, .six, .two, .one, .zero, .enter, .zero, .enter, .four, .enter, .two, .graph])
-        case "probsim": keys([.apps, .nine, .two, .zoom, .zoom, .zoom])
-        case "celsheet": keys([.apps, .five, .one, .enter, .two, .enter, .three, .enter, .alpha, .math, .one, .plus, .alpha, .math, .two, .plus, .alpha, .math, .three, .enter])
-        case "mem": keys([.second, .plus, .two, .enter])
         default: break
         }
     }

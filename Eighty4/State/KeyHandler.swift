@@ -27,17 +27,10 @@ extension CalculatorState {
         if mod != .alphaLock { modifier = .none }
 
         if case .error = screen {
-            if key == .two, let (name, line) = errorGoto, store.programs[name] != nil {
-                errorGoto = nil
-                openProgramEditor(name, line: max(0, line))
-                return
-            }
-            errorGoto = nil
             screen = returnScreen
             returnScreen = .home
             return
         }
-        if runner != nil { handleRunner(key, mod); return }
         if mod == .second && key == .on { turnOff(); return }
         if mod == .second && key == .mode { quitToHome(); return }
 
@@ -51,16 +44,10 @@ extension CalculatorState {
         case .graph: handleGraph(key, mod)
         case .table: handleTable(key, mod)
         case .app: handleApp(key, mod)
-        case .solver: handleSolver(key, mod)
-        case .varList(let m): handleVarList(m, key, mod)
-        case .confirm(let c): handleConfirm(c, key)
-        case .programEditor: handleProgramEditor(key, mod)
-        case .programName, .groupName: handleNameEntry(key, mod)
-        case .programMenu(_, let items): handleProgramMenu(items, key)
         case .linkReceive:
             screen = .error("ERR:Error in Xmit")
             returnScreen = .home
-        case .message, .about:
+        case .message, .about, .memMgmt:
             if key == .clear || key == .enter { screen = .home }
             else { _ = routeNavigation(resolve(key, mod)) }
         case .off, .error: break
@@ -107,7 +94,7 @@ extension CalculatorState {
         case .lparen: return .insert("(")
         case .rparen: return .insert(")")
         case .comma: return .insert(",")
-        case .xtn: return .insert(Graphing.parameterName(store))
+        case .xtn: return .insert("X")
         case .sin: return .insert("sin(")
         case .cos: return .insert("cos(")
         case .tan: return .insert("tan(")
@@ -190,7 +177,7 @@ extension CalculatorState {
     func routeNavigation(_ action: KeyAction) -> Bool {
         switch action {
         case .openMenu(let id):
-            let from: Screen = (screen == .yEquals) ? .yEquals : (isProgramEditor ? screen : .home)
+            let from: Screen = (screen == .yEquals) ? .yEquals : .home
             leaveEditorsIfNeeded(keepY: true)
             openMenu(id, from: from)
         case .openEditor(let id):
@@ -214,16 +201,12 @@ extension CalculatorState {
         return true
     }
 
-    private var isProgramEditor: Bool { if case .programEditor = screen { return true }; return false }
-
     private func leaveEditorsIfNeeded(keepY: Bool) {
         switch screen {
         case .yEquals: if !keepY { leaveYEquals() } else { commitYRow() }
         case .editor: commitEditorNumber()
         case .listEditor: commitListCell()
         case .matrixEditor: commitMatrixCell()
-        case .programEditor: commitProgramLine(); entry = homeEntryBackup; cursor = min(homeCursorBackup, entry.count)
-        case .solver: commitSolverValue(); if solverStage == 0 { store.solverEqn = String(entry) }; entry = homeEntryBackup; cursor = min(homeCursorBackup, entry.count)
         default: break
         }
     }
@@ -263,7 +246,7 @@ extension CalculatorState {
     }
 
     private func syncEditorCol(_ id: EditorID) {
-        let def = Editors.def(id, store: store)
+        let def = Editors.def(id)
         guard editorRow < def.rows.count else { return }
         if case .options(let r) = def.rows[editorRow] { editorCol = store.options[r.key] ?? 0 } else { editorCol = 0 }
     }
@@ -273,7 +256,6 @@ extension CalculatorState {
             homeEntryBackup = entry
             homeCursorBackup = cursor
         }
-        yRow = min(yRow, yKeys.count - 1)
         loadYRow()
         screen = .yEquals
         returnScreen = .yEquals
@@ -286,37 +268,25 @@ extension CalculatorState {
         returnScreen = .home
     }
 
+    private func yIndex(_ row: Int) -> Int { row == 9 ? 0 : row + 1 }
+
     func loadYRow() {
-        let key = yKeys[min(yRow, yKeys.count - 1)]
-        if key == "nMin" { entry = Array(ResultFormatter.number(store.numbers["nMin"] ?? 1)) }
-        else { entry = Array(store.funcText(key) ?? "") }
+        entry = Array(store.yFuncs[yIndex(yRow)] ?? "")
         cursor = entry.count
     }
 
     func commitYRow() {
-        let key = yKeys[min(yRow, yKeys.count - 1)]
         let text = String(entry)
-        if key == "nMin" {
-            if let v = try? Evaluator.number(text, ctx: EvalContext(store: store)) { store.numbers["nMin"] = v; store.seqCache = [:] }
-        } else {
-            store.setFuncText(key, text)
-        }
+        store.yFuncs[yIndex(yRow)] = text.isEmpty ? nil : text
     }
 
     func openGraph(_ mode: GraphMode) {
         let w = GraphWindow(store: store)
         guard w.isValid else { fail(.windowRange); return }
-        store.seqCache = [:]
         graphSamples = Graphing.samples(store)
         let defined = Graphing.definedFunctions(store)
         if !defined.contains(traceFn) { traceFn = defined.first ?? 1 }
-        let (pmin, pmax, _) = Graphing.parameterRange(store)
-        traceX = store.graphType == .function ? (w.xmin + w.xmax) / 2 : pmin
-        if store.graphType == .sequence { traceX = pmin }
-        _ = pmax
-        cursorY = (w.ymin + w.ymax) / 2
-        zboxFirst = nil
-        penDown = false
+        traceX = (w.xmin + w.xmax) / 2
         calcStage = 0
         calcBounds = []
         calcFns = []
@@ -330,7 +300,6 @@ extension CalculatorState {
 
     func openTable() {
         tableStart = store.numbers["TblStart"] ?? 0
-        if store.graphType == .sequence { tableStart = store.numbers["nMin"] ?? 1 }
         tableRow = 0
         tableCol = 0
         screen = .table
@@ -341,30 +310,8 @@ extension CalculatorState {
         switch id {
         case .geoDash: game = GeoDashGame()
         case .tetris: game = TetrisGame()
-        case .plySmlt2: game = PlySmlt2App(store: store)
-        case .conics: game = ConicsApp(store: store)
-        case .inequalz: game = InequalzApp(store: store)
-        case .probSim: game = ProbSimApp()
-        case .sciTools: game = SciToolsApp(store: store)
-        case .transfrm: game = TransfrmApp(store: store)
-        case .celSheet: game = CelSheetApp(store: store)
-        case .cabriJr: game = CabriJrApp()
-        case .vernier: game = VernierApp()
         }
         screen = .app(id)
-        returnScreen = .home
-    }
-
-    func openProgramEditor(_ name: String, line: Int = 0) {
-        programName = name
-        programLines = store.programs[name] ?? [""]
-        if programLines.isEmpty { programLines = [""] }
-        programRow = min(line, programLines.count - 1)
-        homeEntryBackup = entry
-        homeCursorBackup = cursor
-        entry = Array(programLines[programRow])
-        cursor = entry.count
-        screen = .programEditor(name)
         returnScreen = .home
     }
 
@@ -417,57 +364,6 @@ extension CalculatorState {
         cursor = entry.count
     }
 
-    // MARK: - Running programs
-
-    private func handleRunner(_ key: KeyID, _ mod: Modifier) {
-        guard let r = runner else { return }
-        if key == .on { breakProgram(); return }
-        switch r.wait {
-        case .input:
-            let action = resolve(key, mod)
-            switch action {
-            case .insert(let s): insert(s)
-            case .del: deleteAtCursor()
-            case .ins: insertMode.toggle()
-            case .left: cursor = max(0, cursor - 1)
-            case .right: cursor = min(entry.count, cursor + 1)
-            case .clear: entry = []; cursor = 0
-            case .enter, .entry:
-                let text = String(entry)
-                if let last = history.indices.last { history[last] = LCDLine(text: String((history[last].text + text).prefix(Self.columns)), trailing: false) }
-                entry = []; cursor = 0
-                resumeRunner(input: text)
-            default: break
-            }
-        case .enter:
-            if key == .enter { resumeRunner(input: nil) }
-        case .key:
-            store.lastKey = mod == .second ? 21 : KeyCodes.code(key)
-            resumeRunner(input: nil)
-        case .menu(_, let items, _):
-            handleProgramMenu(items, key)
-        case .none:
-            break
-        }
-    }
-
-    private func handleProgramMenu(_ items: [String], _ key: KeyID) {
-        switch key {
-        case .up: programMenuRow = (programMenuRow - 1 + items.count) % max(1, items.count)
-        case .down: programMenuRow = (programMenuRow + 1) % max(1, items.count)
-        case .enter:
-            screen = .home
-            resumeRunner(input: String(programMenuRow + 1))
-        case .clear:
-            breakProgram()
-        default:
-            if case .insert(let s) = resolve(key, .none), let d = Int(s), d >= 1, d <= items.count {
-                screen = .home
-                resumeRunner(input: String(d))
-            }
-        }
-    }
-
     // MARK: - Menus
 
     private func handleMenu(_ id: MenuID, _ key: KeyID, _ mod: Modifier) {
@@ -503,39 +399,31 @@ extension CalculatorState {
 
     private func closeMenu() {
         screen = returnScreen
-        if screen == .yEquals { returnScreen = .yEquals }
-        else if case .programEditor = screen {}
-        else { returnScreen = .home }
+        if screen == .yEquals { returnScreen = .yEquals } else { returnScreen = .home }
     }
 
     private func select(_ item: MenuItem) {
         switch item.action {
         case .insert(let s):
             closeMenu()
-            if screen == .home || screen == .yEquals || screen == .solver || isProgramEditor { insert(s) }
+            if screen == .home || screen == .yEquals { insert(s) }
             else { screen = .home; insert(s) }
         case .submenu(let id):
             menuTab = 0; menuRow = 0
             screen = .menu(id)
         case .editor(let id):
-            leaveForCommand()
+            if returnScreen == .yEquals { leaveYEquals() }
             openEditor(id)
         case .app(let id):
-            leaveForCommand()
+            if returnScreen == .yEquals { leaveYEquals() }
             startApp(id)
         case .command(let c):
             runCommand(c)
         }
     }
 
-    /// Leaves the Y= / program editor cleanly before a command switches screens.
-    private func leaveForCommand() {
-        if returnScreen == .yEquals { leaveYEquals() }
-        if case .programEditor = returnScreen { commitProgramLine(); entry = homeEntryBackup; cursor = min(homeCursorBackup, entry.count); returnScreen = .home }
-    }
-
     private func showMessage(_ lines: [String]) {
-        leaveForCommand()
+        if returnScreen == .yEquals { leaveYEquals() }
         screen = .message(lines)
         returnScreen = .home
     }
@@ -543,39 +431,46 @@ extension CalculatorState {
     private func runCommand(_ c: Command) {
         switch c {
         case .zoom(let kind):
-            leaveForCommand()
+            if returnScreen == .yEquals { leaveYEquals() }
             let center: (Double, Double)? = (screen == .graph || returnScreen == .graph) ? (traceX, Graphing.y(traceFn, at: traceX, store: store) ?? 0) : nil
             Graphing.zoom(kind, store: store, center: center)
             openGraph(.view)
-        case .zbox:
-            leaveForCommand()
-            openGraph(.zbox)
-        case .pen:
-            leaveForCommand()
-            openGraph(.pen)
         case .clearEntries:
             store.entries = []
             closeMenu(); screen = .home
             appendHistory(expr: "Clear Entries", result: "Done")
+        case .resetAll:
+            store.reset()
+            history = []; entry = []; cursor = 0
+            showMessage(["", "", "       RAM cleared", "", "", "", "", "", "", "  Press CLEAR to continue"])
+        case .resetDefaults:
+            store.options = VariableStore.defaultOptions
+            store.numbers = VariableStore.defaultNumbers
+            showMessage(["", "", "     Defaults set", "", "", "", "", "", "", "  Press CLEAR to continue"])
         case .about:
-            leaveForCommand()
+            if returnScreen == .yEquals { leaveYEquals() }
             screen = .about; returnScreen = .home
-        case .oneVar, .twoVar, .linReg, .linRegAlt, .quadReg, .cubicReg, .quartReg, .expReg, .lnReg, .pwrReg, .medMed, .logistic, .sinReg:
+        case .memMgmt:
+            if returnScreen == .yEquals { leaveYEquals() }
+            screen = .memMgmt; returnScreen = .home
+        case .oneVar, .twoVar, .linReg, .linRegAlt, .quadReg, .cubicReg, .quartReg, .expReg, .lnReg, .pwrReg, .medMed:
             runStatCalc(c)
         case .listEditor:
-            leaveForCommand()
+            if returnScreen == .yEquals { leaveYEquals() }
             listRow = 0; listCol = 0
             editorBuffer = []; editorTyping = false
             screen = .listEditor; returnScreen = .home
         case .matrixEdit(let name):
-            leaveForCommand()
+            if returnScreen == .yEquals { leaveYEquals() }
             matName = name
             if store.matrices[name] == nil { store.matrices[name] = [[0]] }
             matRow = -1; matCol = 0
             editorBuffer = []; editorTyping = false
             screen = .matrixEditor(name); returnScreen = .home
+        case .programsReadOnly:
+            showMessage(["", "", "  Programs are read-only", "  in Eighty4 v0.2.0.", "", "  Run them from PRGM EXEC", "  or the APPS menu.", "", "", "  Press CLEAR to continue"])
         case .calc(let op):
-            leaveForCommand()
+            if returnScreen == .yEquals { leaveYEquals() }
             guard !Graphing.definedFunctions(store).isEmpty else { fail(.undefined); returnScreen = .home; return }
             openGraph(.calc(op))
         case .trace:
@@ -592,41 +487,8 @@ extension CalculatorState {
             closeMenu()
             if screen != .home && screen != .yEquals { screen = .home }
             insert(store.regEQ.isEmpty ? "0" : store.regEQ)
-        case .solver:
-            leaveForCommand()
-            openSolver()
-        case .statTest(let t):
-            leaveForCommand()
-            openEditor(.statTest(t))
-        case .runProgram(let name):
-            leaveForCommand()
-            screen = .home; returnScreen = .home
-            entry = []; cursor = 0
-            insert("prgm" + name)
-            evaluate()
-        case .editProgram(let name):
-            leaveForCommand()
-            openProgramEditor(name)
-        case .newProgram:
-            leaveForCommand()
-            nameBuffer = []
-            modifier = .alphaLock
-            screen = .programName; returnScreen = .home
-        case .varList(let mode):
-            leaveForCommand()
-            varListRow = 0
-            screen = .varList(mode); returnScreen = .home
-        case .confirm(let kind):
-            leaveForCommand()
-            screen = .confirm(kind); returnScreen = .home
-        case .createGroup:
-            leaveForCommand()
-            nameBuffer = []
-            modifier = .alphaLock
-            screen = .groupName; returnScreen = .home
-        case .ungroup(let name):
-            if let g = store.groups[name] { store.ungroup(g) }
-            showMessage(["", "", "  Ungrouped \(name)", "", "", "", "", "", "", "  Press CLEAR to continue"])
+        case .notAvailable(let label):
+            showMessage(["", "", "  \(label)", "", "  is not available in", "  Eighty4 v0.2.0.", "", "", "", "  Press CLEAR to continue"])
         }
     }
 
@@ -687,16 +549,6 @@ extension CalculatorState {
                 let a = exp(r.b)
                 pairs = [("a", a), ("b", r.a), ("r²", r.r * r.r), ("r", r.r)]
                 store.regEQ = "\(fmt(a))×X^\(fmt(r.a))"
-            case .logistic:
-                let r = try Stats.logisticReg(x, y)
-                lines.append("Logistic"); lines.append(" y=c/(1+ae^(-bx))")
-                pairs = [("a", r.a), ("b", r.b), ("c", r.c)]
-                store.regEQ = "\(fmt(r.c))÷(1+\(fmt(r.a))e^(⁻\(fmt(r.b))X))"
-            case .sinReg:
-                let r = try Stats.sinReg(x, y)
-                lines.append("SinReg"); lines.append(" y=a*sin(bx+c)+d")
-                pairs = [("a", r.a), ("b", r.b), ("c", r.c), ("d", r.d)]
-                store.regEQ = "\(fmt(r.a))sin(\(fmt(r.b))X+\(fmt(r.c)))+\(fmt(r.d))"
             default:
                 return
             }
@@ -704,7 +556,7 @@ extension CalculatorState {
                 store.stats[k] = v
                 lines.append(" \(k)=\(fmt(v))")
             }
-            leaveForCommand()
+            if returnScreen == .yEquals { leaveYEquals() }
             screen = .message(Array(lines.prefix(10)))
             returnScreen = .home
         } catch let e as CalcError {
@@ -719,9 +571,8 @@ extension CalculatorState {
     // MARK: - Settings / number editors
 
     private func handleEditor(_ id: EditorID, _ key: KeyID, _ mod: Modifier) {
-        let def = Editors.def(id, store: store)
-        editorRow = min(editorRow, def.rows.count - 1)
-        let row = def.rows[editorRow]
+        let def = Editors.def(id)
+        let row = def.rows[min(editorRow, def.rows.count - 1)]
         let isNumber: Bool = { if case .number = row { return true }; return false }()
 
         if id == .tvm, key == .enter, mod == .alpha || mod == .alphaLock, case .number(let k, _) = row {
@@ -745,13 +596,7 @@ extension CalculatorState {
             syncEditorCol(id)
         case .enter:
             if case .options(let r) = row {
-                if r.key == "calcDraw", case .statTest(let t) = id {
-                    runStatTest(t, draw: editorCol == 1)
-                    return
-                }
                 store.options[r.key] = editorCol
-                if r.key == "graph" { store.seqCache = [:]; yRow = 0 }
-                if r.key == "t.Inpt" { editorRow = min(editorRow + 1, Editors.def(id, store: store).rows.count - 1); syncEditorCol(id) }
             } else {
                 commitEditorNumber()
                 editorRow = min(def.rows.count - 1, editorRow + 1)
@@ -780,7 +625,7 @@ extension CalculatorState {
 
     func commitEditorNumber() {
         guard editorTyping, case .editor(let id) = screen else { editorTyping = false; return }
-        let def = Editors.def(id, store: store)
+        let def = Editors.def(id)
         guard editorRow < def.rows.count, case .number(let key, _) = def.rows[editorRow] else { editorTyping = false; return }
         let text = String(editorBuffer)
         editorTyping = false
@@ -789,32 +634,6 @@ extension CalculatorState {
         do {
             store.numbers[key] = try Evaluator.number(text, ctx: EvalContext(store: store))
             tvmSolved = nil
-            store.seqCache = [:]
-        } catch let e as CalcError { fail(e) } catch { fail(.syntax) }
-    }
-
-    private func runStatTest(_ t: StatTest, draw: Bool) {
-        commitEditorNumber()
-        do {
-            let r = try t.run(store: store)
-            for (k, v) in r.values { store.stats[k] = v }
-            if draw, let (kind, params, lo, hi) = r.draw {
-                // Auto window around the distribution, like the real DRAW option.
-                let (xmin, xmax, ymax): (Double, Double, Double)
-                switch kind {
-                case "t", "norm": (xmin, xmax, ymax) = (-4, 4, 0.5)
-                case "chi2": let df = params.first ?? 1; (xmin, xmax, ymax) = (0, max(10, df * 3), min(0.5, Stats.chi2PDF(max(0.5, df - 2), df) * 1.2 + 0.02))
-                default: (xmin, xmax, ymax) = (0, 6, 1)
-                }
-                Graphing.setWindow(store, xmin, xmax, 1, -ymax * 0.15, ymax, 0.1)
-                store.options["axes"] = 0
-                let cap = r.lines.dropFirst().prefix(2).map { $0.trimmingCharacters(in: .whitespaces) }.joined(separator: " ")
-                store.drawings = [.dist(kind, params, lo, hi, cap)]
-                openGraph(.view)
-                return
-            }
-            screen = .message(Array(r.lines.prefix(10)))
-            returnScreen = .home
         } catch let e as CalcError { fail(e) } catch { fail(.syntax) }
     }
 
@@ -823,20 +642,14 @@ extension CalculatorState {
     private func handleYEquals(_ key: KeyID, _ mod: Modifier) {
         let action = resolve(key, mod)
         if routeNavigation(action) { return }
-        let last = yKeys.count - 1
         switch action {
         case .insert(let s): insert(s)
         case .up: commitYRow(); yRow = max(0, yRow - 1); loadYRow()
-        case .down, .enter: commitYRow(); yRow = min(last, yRow + 1); loadYRow()
+        case .down, .enter: commitYRow(); yRow = min(9, yRow + 1); loadYRow()
         case .clear: entry = []; cursor = 0
         case .del: deleteAtCursor()
         case .ins: insertMode.toggle()
-        case .left:
-            if cursor == 0 {
-                // Cursor on the "=" toggles the function on/off, like the real Y= screen.
-                let key = yKeys[min(yRow, last)]
-                if Self.hasToggle(key) { store.setFuncEnabled(key, !store.funcEnabled(key)) }
-            } else { cursor = max(0, cursor - 1) }
+        case .left: cursor = max(0, cursor - 1)
         case .right: cursor = min(entry.count, cursor + 1)
         default: break
         }
@@ -952,9 +765,7 @@ extension CalculatorState {
 
     private func handleGraph(_ key: KeyID, _ mod: Modifier) {
         let w = GraphWindow(store: store)
-        let (pmin, pmax, pstep) = Graphing.parameterRange(store)
-        let xPixel = (w.xmax - w.xmin) / Double(Int(Graphing.size.width) - 1)
-        let yPixel = (w.ymax - w.ymin) / Double(Int(Graphing.size.height) - 1)
+        let step = (w.xmax - w.xmin) / Double(Int(Graphing.size.width) - 1)
         let defined = Graphing.definedFunctions(store)
         let action = resolve(key, mod)
 
@@ -964,46 +775,14 @@ extension CalculatorState {
         }
         if routeNavigation(action) { return }
 
-        // Free cursor modes: ZBox and Pen.
-        if graphMode == .zbox || graphMode == .pen {
-            switch action {
-            case .clear: graphMode = .view; zboxFirst = nil; penDown = false
-            case .left, .right, .up, .down:
-                switch action {
-                case .left: traceX -= xPixel
-                case .right: traceX += xPixel
-                case .up: cursorY += yPixel
-                default: cursorY -= yPixel
-                }
-                traceX = min(w.xmax, max(w.xmin, traceX))
-                cursorY = min(w.ymax, max(w.ymin, cursorY))
-                if graphMode == .pen, penDown { addPenPixel(w) }
-            case .enter:
-                if graphMode == .zbox {
-                    if let (x1, y1) = zboxFirst {
-                        Graphing.zoom(.box(x1, y1, traceX, cursorY), store: store)
-                        openGraph(.view)
-                    } else {
-                        zboxFirst = (traceX, cursorY)
-                    }
-                } else {
-                    penDown.toggle()
-                    if penDown { addPenPixel(w) }
-                }
-            default: break
-            }
-            return
-        }
-
         switch action {
         case .clear: screen = .home; graphMode = .view
         case .left, .right:
             if graphMode == .view { if defined.isEmpty { return }; graphMode = .trace }
             calcResult = nil
             graphBuffer = []
-            let step = store.graphType == .function ? xPixel : pstep
             traceX += (action == .left ? -step : step)
-            traceX = min(pmax, max(pmin, traceX))
+            traceX = min(w.xmax, max(w.xmin, traceX))
         case .up, .down:
             guard let i = defined.firstIndex(of: traceFn), !defined.isEmpty else { return }
             if graphMode == .view { graphMode = .trace }
@@ -1017,7 +796,7 @@ extension CalculatorState {
             if !graphBuffer.isEmpty { graphBuffer.removeLast() }
         case .enter:
             if !graphBuffer.isEmpty {
-                if let v = try? Evaluator.number(String(graphBuffer), ctx: EvalContext(store: store)) { traceX = min(pmax, max(pmin, v)) }
+                if let v = try? Evaluator.number(String(graphBuffer), ctx: EvalContext(store: store)) { traceX = v }
                 graphBuffer = []
                 if case .calc = graphMode {} else { return }
             }
@@ -1026,23 +805,15 @@ extension CalculatorState {
         }
     }
 
-    private func addPenPixel(_ w: GraphWindow) {
-        let col = (w.px(traceX, Graphing.size) * Graphing.tiPixels.width / Graphing.size.width).rounded()
-        let row = (w.py(cursorY, Graphing.size) * Graphing.tiPixels.height / Graphing.size.height).rounded()
-        let p = Drawing.pixel(Double(row), Double(col))
-        if !store.drawings.contains(p) { store.drawings.append(p) }
-    }
-
     private func advanceCalc(_ op: CalcOp) {
         do {
             switch op {
             case .value:
-                guard let (x, y) = Graphing.point(traceFn, at: traceX, store: store) else { throw CalcError.undefined }
-                calcResult = CalcResult(label: "", x: x, y: y)
+                guard let y = Graphing.y(traceFn, at: traceX, store: store) else { throw CalcError.undefined }
+                calcResult = CalcResult(label: "", x: traceX, y: y)
             case .derivative:
                 let d = try Graphing.derivative(traceFn, at: traceX, store: store)
-                let (x, y) = Graphing.point(traceFn, at: traceX, store: store) ?? (traceX, 0)
-                calcResult = CalcResult(label: "dy/dx=\(ResultFormatter.format(.num(d), store: store))", x: x, y: y)
+                calcResult = CalcResult(label: "dy/dx=\(ResultFormatter.format(.num(d), store: store))", x: traceX, y: Graphing.y(traceFn, at: traceX, store: store) ?? 0)
             case .intersect:
                 if calcStage < 2 { calcFns.append(traceFn) }
                 else {
@@ -1071,15 +842,12 @@ extension CalculatorState {
                 }
             }
             calcStage += 1
-            if let r = calcResult {
-                store.reals["X"] = r.x
-                store.reals["Y"] = r.y
-                if op == .integral || op == .derivative {
-                    let tail = r.label.split(separator: "=").last.map { String($0) } ?? ""
-                    store.ans = .num((try? Evaluator.number(tail, ctx: EvalContext(store: store))) ?? r.x)
-                } else {
-                    store.ans = .num(r.x)
-                }
+            if calcResult != nil {
+                store.reals["X"] = calcResult!.x
+                store.reals["Y"] = calcResult!.y
+                store.ans = .num(op == .integral || op == .derivative ? Double(calcResult!.label.split(separator: "=").last.map { String($0) }.flatMap { s -> Double? in
+                    try? Evaluator.number(s, ctx: EvalContext(store: store))
+                } ?? calcResult!.x) : calcResult!.x)
                 graphMode = .trace
                 calcStage = 0
                 calcBounds = []
@@ -1104,15 +872,15 @@ extension CalculatorState {
     // MARK: - Table
 
     private func handleTable(_ key: KeyID, _ mod: Modifier) {
-        let dt = store.graphType == .sequence ? 1 : (store.numbers["ΔTbl"] ?? 1)
-        let columns = TableColumns.columns(store)
+        let dt = store.numbers["ΔTbl"] ?? 1
+        let defined = Graphing.definedFunctions(store)
         switch key {
         case .up:
             if tableRow > 0 { tableRow -= 1 } else { tableStart -= dt }
         case .down:
             if tableRow < 8 { tableRow += 1 } else { tableStart += dt }
         case .left: tableCol = max(0, tableCol - 1)
-        case .right: tableCol = min(columns.count, tableCol + 1)
+        case .right: tableCol = min(defined.count, tableCol + 1)
         case .clear: screen = .home
         default:
             _ = routeNavigation(resolve(key, mod))
@@ -1122,292 +890,11 @@ extension CalculatorState {
     // MARK: - Apps
 
     private func handleApp(_ key: KeyID, _ mod: Modifier) {
-        if key == .on {
+        if key == .clear || key == .on {
             game = nil
             screen = .home
             return
         }
-        guard let g = game else { screen = .home; return }
-        if key == .clear, !g.handlesClear {
-            game = nil
-            screen = .home
-            return
-        }
-        g.handle(key, resolve(key, mod))
-        if g.wantsExit {
-            game = nil
-            screen = .home
-            if store.pendingShowGraph { store.pendingShowGraph = false; openGraph(.view) }
-        }
-    }
-
-    // MARK: - Solver
-
-    func openSolver() {
-        homeEntryBackup = entry
-        homeCursorBackup = cursor
-        entry = Array(store.solverEqn)
-        cursor = entry.count
-        solverStage = 0
-        solverRow = 0
-        solverSolved = nil
-        editorBuffer = []; editorTyping = false
-        screen = .solver
-        returnScreen = .home
-    }
-
-    var solverVariables: [String] { Solver.variables(in: store.solverEqn) }
-
-    private func handleSolver(_ key: KeyID, _ mod: Modifier) {
-        let action = resolve(key, mod)
-        if solverStage == 0 {
-            switch action {
-            case .insert(let s): insert(s)
-            case .del: deleteAtCursor()
-            case .ins: insertMode.toggle()
-            case .left: cursor = max(0, cursor - 1)
-            case .right: cursor = min(entry.count, cursor + 1)
-            case .clear:
-                if entry.isEmpty { leaveSolver() } else { entry = []; cursor = 0 }
-            case .enter, .down:
-                store.solverEqn = String(entry)
-                guard !store.solverEqn.isEmpty else { return }
-                for v in solverVariables where store.reals[v] == nil { store.reals[v] = 0 }
-                solverStage = 1
-                solverRow = 0
-                solverSolved = nil
-            default:
-                if routeNavigation(action) { entry = homeEntryBackup; cursor = min(homeCursorBackup, entry.count) }
-            }
-            return
-        }
-        let vars = solverVariables
-        let rowCount = vars.count + 1   // variable rows + bound row
-        switch action {
-        case .insert(let s):
-            if solverRow < vars.count {
-                if !editorTyping { editorBuffer = []; editorTyping = true }
-                editorBuffer += Array(s)
-            }
-        case .del:
-            if editorTyping, !editorBuffer.isEmpty { editorBuffer.removeLast() }
-        case .up:
-            commitSolverValue()
-            if solverRow == 0 { solverStage = 0; entry = Array(store.solverEqn); cursor = entry.count }
-            else { solverRow -= 1 }
-        case .down:
-            commitSolverValue()
-            solverRow = min(rowCount - 1, solverRow + 1)
-        case .enter:
-            commitSolverValue()
-            if mod == .alpha || mod == .alphaLock, solverRow < vars.count {
-                let name = vars[solverRow]
-                do {
-                    let x = try Solver.solve(store.solverEqn, for: name, guess: store.reals[name] ?? 0, lo: -1e99, hi: 1e99, store: store)
-                    store.reals[name] = x
-                    solverSolved = name
-                } catch let e as CalcError { fail(e) } catch { fail(.syntax) }
-            } else {
-                solverRow = min(rowCount - 1, solverRow + 1)
-            }
-        case .clear:
-            if editorTyping { editorBuffer = []; editorTyping = false } else { leaveSolver() }
-        default:
-            commitSolverValue()
-            if routeNavigation(action) { entry = homeEntryBackup; cursor = min(homeCursorBackup, entry.count) }
-        }
-    }
-
-    func commitSolverValue() {
-        guard editorTyping else { return }
-        let text = String(editorBuffer)
-        editorTyping = false
-        editorBuffer = []
-        let vars = solverVariables
-        guard !text.isEmpty, solverRow < vars.count else { return }
-        do { store.reals[vars[solverRow]] = try Evaluator.number(text, ctx: EvalContext(store: store)); solverSolved = nil }
-        catch let e as CalcError { fail(e) } catch { fail(.syntax) }
-    }
-
-    private func leaveSolver() {
-        if solverStage == 0 { store.solverEqn = String(entry) }
-        entry = homeEntryBackup
-        cursor = min(homeCursorBackup, entry.count)
-        screen = .home
-    }
-
-    // MARK: - MEM variable lists, confirmations, groups
-
-    private func handleVarList(_ mode: VarListMode, _ key: KeyID, _ mod: Modifier) {
-        let items = varListItems(mode)
-        switch key {
-        case .up: varListRow = max(0, varListRow - 1)
-        case .down: varListRow = min(max(0, items.count - 1), varListRow + 1)
-        case .clear: screen = .home
-        case .enter:
-            guard varListRow < items.count else { return }
-            let name = items[varListRow].name
-            if items[varListRow].category == "Apps" { return }
-            if store.archived.contains(name) { store.archived.remove(name) } else { store.archived.insert(name) }
-            varListRow = min(varListRow, max(0, varListItems(mode).count - 1))
-        case .del:
-            guard case .manage = mode, varListRow < items.count, items[varListRow].category != "Apps" else { return }
-            let name = items[varListRow].name
-            returnScreen = screen
-            screen = .confirm(.deleteVariable(name))
-        default:
-            _ = routeNavigation(resolve(key, mod))
-        }
-    }
-
-    private func handleConfirm(_ kind: ConfirmKind, _ key: KeyID) {
-        let yes = key == .two || key == .enter
-        let no = key == .one || key == .clear
-        guard yes || no else { return }
-        let back = returnScreen
-        returnScreen = .home
-        if no { screen = (kind == .garbageCollect || isDeleteConfirm(kind)) ? back : .home; return }
-        switch kind {
-        case .resetRAM:
-            store.reset()
-            history = []; entry = []; cursor = 0
-            screen = .message(["", "", "       RAM cleared", "", "", "", "", "", "", "  Press CLEAR to continue"])
-        case .resetDefaults:
-            store.options = VariableStore.defaultOptions
-            store.numbers = VariableStore.defaultNumbers
-            screen = .message(["", "", "     Defaults set", "", "", "", "", "", "", "  Press CLEAR to continue"])
-        case .resetArchiveVars:
-            store.resetArchive(vars: true, apps: false)
-            screen = .message(["", "", "    Archive cleared", "", "", "", "", "", "", "  Press CLEAR to continue"])
-        case .resetArchiveApps:
-            store.resetArchive(vars: false, apps: true)
-            screen = .message(["", "", "     Apps cleared", "", "", "", "", "", "", "  Press CLEAR to continue"])
-        case .resetArchiveBoth:
-            store.resetArchive(vars: true, apps: true)
-            screen = .message(["", "", "    Archive cleared", "", "", "", "", "", "", "  Press CLEAR to continue"])
-        case .garbageCollect:
-            screen = .message(["", "", "  Garbage collection", "  complete.", "", "", "", "", "", "  Press CLEAR to continue"])
-        case .deleteVariable(let name):
-            store.deleteVariable(name)
-            screen = back
-            if case .varList(let m) = back { varListRow = min(varListRow, max(0, varListItems(m).count - 1)) }
-        }
-    }
-
-    private func isDeleteConfirm(_ kind: ConfirmKind) -> Bool { if case .deleteVariable = kind { return true }; return false }
-
-    /// NEW program / group name prompt (alpha-lock is on).
-    private func handleNameEntry(_ key: KeyID, _ mod: Modifier) {
-        let action = resolve(key, mod)
-        switch action {
-        case .insert(let s):
-            guard nameBuffer.count < 8 else { return }
-            let ch = s.uppercased()
-            if let c = ch.first, c.isLetter || (c.isNumber && !nameBuffer.isEmpty), c != " " { nameBuffer.append(c) }
-        case .del:
-            if !nameBuffer.isEmpty { nameBuffer.removeLast() }
-        case .clear:
-            modifier = .none
-            screen = .home
-        case .enter:
-            let name = String(nameBuffer)
-            guard !name.isEmpty else { return }
-            modifier = .none
-            if screen == .programName {
-                if store.programs[name] == nil { store.programs[name] = [""] }
-                openProgramEditor(name)
-            } else {
-                store.groups[name] = store.makeGroup()
-                screen = .message(["", "", "  Group \(name) created", "  from all variables.", "", "", "", "", "", "  Press CLEAR to continue"])
-            }
-        default:
-            break
-        }
-    }
-
-    // MARK: - Program editor
-
-    private func handleProgramEditor(_ key: KeyID, _ mod: Modifier) {
-        let action = resolve(key, mod)
-        if key == .prgm, mod == .none {
-            commitProgramLine()
-            openMenu(.prgmCtl, from: screen)
-            return
-        }
-        switch action {
-        case .insert(let s): insert(s)
-        case .del:
-            if entry.isEmpty, programLines.count > 1 {
-                programLines.remove(at: programRow)
-                programRow = min(programRow, programLines.count - 1)
-                entry = Array(programLines[programRow]); cursor = entry.count
-                store.programs[programName] = programLines
-            } else { deleteAtCursor() }
-        case .ins: insertMode.toggle()
-        case .left: cursor = max(0, cursor - 1)
-        case .right: cursor = min(entry.count, cursor + 1)
-        case .up:
-            commitProgramLine()
-            programRow = max(0, programRow - 1)
-            entry = Array(programLines[programRow]); cursor = entry.count
-        case .down:
-            commitProgramLine()
-            programRow = min(programLines.count - 1, programRow + 1)
-            entry = Array(programLines[programRow]); cursor = entry.count
-        case .enter:
-            // Split the line at the cursor: the rest moves to a new line.
-            let head = Array(entry.prefix(cursor)), tail = Array(entry.dropFirst(cursor))
-            programLines[programRow] = String(head)
-            programLines.insert(String(tail), at: programRow + 1)
-            programRow += 1
-            entry = tail; cursor = 0
-            store.programs[programName] = programLines
-        case .clear:
-            entry = []; cursor = 0
-        case .openMenu(let id):
-            commitProgramLine()
-            openMenu(id, from: screen)
-        case .openYEquals, .openGraph, .openTrace, .openTable, .openEditor:
-            commitProgramLine()
-            entry = homeEntryBackup; cursor = min(homeCursorBackup, entry.count)
-            _ = routeNavigation(action)
-        default: break
-        }
-    }
-
-    func commitProgramLine() {
-        guard case .programEditor = screen else { return }
-        guard programRow < programLines.count else { return }
-        programLines[programRow] = String(entry)
-        store.programs[programName] = programLines
-    }
-}
-
-/// Columns of the TABLE screen in the current graph mode.
-enum TableColumns {
-    struct Column {
-        let label: String
-        let value: (Double) -> Double?
-    }
-
-    static func columns(_ store: VariableStore) -> [Column] {
-        let subs = Tokenizer.subscripts
-        switch store.graphType {
-        case .function:
-            return Graphing.definedFunctions(store).map { n in Column(label: "Y\(subs[n])") { Graphing.y(n, at: $0, store: store) } }
-        case .parametric:
-            return Graphing.definedFunctions(store).flatMap { n in
-                [Column(label: "X\(subs[n])T") { Graphing.point(n, at: $0, store: store)?.0 },
-                 Column(label: "Y\(subs[n])T") { Graphing.point(n, at: $0, store: store)?.1 }]
-            }
-        case .polar:
-            return Graphing.definedFunctions(store).map { n in
-                Column(label: "r\(subs[n])") { p in store.funcs["r\(n)"].flatMap { Graphing.evaluate($0, with: ["θ": p], store: store) } }
-            }
-        case .sequence:
-            return Graphing.definedFunctions(store).map { n in
-                Column(label: "\(Sequences.names[n - 1])(n)") { Graphing.point(n, at: $0, store: store)?.1 }
-            }
-        }
+        game?.press(key)
     }
 }

@@ -6,7 +6,7 @@ struct SettingsEditorView: View {
     let id: EditorID
 
     var body: some View {
-        let def = Editors.def(id, store: state.store)
+        let def = Editors.def(id)
         let titleRows = def.title == nil ? 0 : 1
         let visible = LCD.rows - titleRows
         let start = max(0, min(state.editorRow - (visible - 1), max(0, def.rows.count - visible)))
@@ -49,8 +49,7 @@ struct SettingsEditorView: View {
         let typing = isCursorRow && state.editorTyping
         let value = typing ? String(state.editorBuffer) : ResultFormatter.number(state.store.numbers[key] ?? 0, notation: state.store.notation, fixed: state.store.fixedDigits)
         let prefix = (state.tvmSolved == key ? "■" : " ") + label + "="
-        let isTest: Bool = { if case .statTest = id { return true }; return false }()
-        let text = id == .tvm ? prefix + value : (label + (isTest ? ":" : "=") + value)
+        let text = id == .tvm ? prefix + value : label + "=" + value
         Cells(row: row, col: 0, text: String(text.prefix(LCD.cols)))
         if isCursorRow {
             BlinkingCursor(row: row, col: min(LCD.cols - 1, text.count), glyph: state.cursorGlyph)
@@ -62,19 +61,18 @@ struct YEqualsView: View {
     @Environment(CalculatorState.self) private var state
 
     var body: some View {
-        let keys = state.yKeys
+        let sub = Tokenizer.subscripts
         let visible = LCD.rows - 1
-        let start = max(0, min(state.yRow - (visible - 1), max(0, keys.count - visible)))
+        let start = max(0, min(state.yRow - (visible - 1), 10 - visible))
         ZStack(alignment: .topLeading) {
             ForEach(1...3, id: \.self) { i in
                 Cells(row: 0, col: (i - 1) * 7, text: "Plot\(i)", inverted: state.store.plotOn(i))
             }
-            ForEach(0..<min(visible, keys.count - start), id: \.self) { i in
+            ForEach(0..<visible, id: \.self) { i in
                 let idx = start + i
-                let key = keys[idx]
+                let n = idx == 9 ? 0 : idx + 1
                 let row = i + 1
-                let marker = CalculatorState.hasToggle(key) ? (state.store.funcEnabled(key) ? "\\" : " ") : " "
-                let label = marker + CalculatorState.yLabel(key)
+                let label = (state.store.isYEnabled(n) ? "\\" : " ") + "Y\(sub[n])="
                 Cells(row: row, col: 0, text: label)
                 if idx == state.yRow {
                     let chars = state.entry
@@ -84,7 +82,7 @@ struct YEqualsView: View {
                     Cells(row: row, col: label.count, text: shown)
                     BlinkingCursor(row: row, col: label.count + state.cursor - windowStart, glyph: state.cursorGlyph, underline: state.insertMode)
                 } else {
-                    let text = key == "nMin" ? ResultFormatter.number(state.store.numbers["nMin"] ?? 1) : (state.store.funcText(key) ?? "")
+                    let text = state.store.yFuncs[n] ?? ""
                     Cells(row: row, col: label.count, text: String(text.prefix(LCD.cols - label.count)))
                 }
             }
