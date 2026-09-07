@@ -3,16 +3,20 @@ import Foundation
 /// Formats values the way the TI-84 Plus CE does, honoring MODE (NORMAL/SCI/ENG, FLOAT/FIX n).
 enum ResultFormatter {
     static func format(_ v: Value, store: VariableStore) -> String {
-        format(v, notation: store.notation, fixed: store.fixedDigits)
+        format(v, notation: store.notation, fixed: store.fixedDigits, mixed: store.mixedFractions)
     }
 
     static func format(_ v: Value) -> String { format(v, notation: 0, fixed: nil) }
 
-    static func format(_ v: Value, notation: Int, fixed: Int?) -> String {
+    static func format(_ v: Value, notation: Int, fixed: Int?, mixed: Bool = false) -> String {
         switch v {
         case .num(let d): return number(d, notation: notation, fixed: fixed)
         case .fraction(let n, let d):
             if d == 1 { return number(Double(n), notation: notation, fixed: fixed) }
+            if mixed, abs(n) > d {
+                let whole = abs(n) / d, rem = abs(n) % d
+                return (n < 0 ? "⁻" : "") + "\(whole)_\(rem)/\(d)"
+            }
             return (n < 0 ? "⁻" : "") + "\(abs(n))/\(d)"
         case .list(let l):
             return "{" + l.map { number($0, notation: notation, fixed: fixed) }.joined(separator: " ") + "}"
