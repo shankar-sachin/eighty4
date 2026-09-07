@@ -5,6 +5,8 @@ enum MenuID: Equatable {
     case varsGDB, varsPic, varsStr, yvarsParam, yvarsPolar, yvarsSeq
     case matrix, stat, draw, prgm, apps, zoom, calc, mem, reset, link, statPlot, catalog
     case memMgmt, group, prgmCtl
+    /// MATH piecewise( in MATHPRINT mode: how many pieces the template gets.
+    case piecewise
 }
 
 enum EditorID: Equatable {
@@ -59,9 +61,14 @@ enum VarListMode: Equatable {
 enum ConfirmKind: Equatable {
     case resetRAM, resetDefaults, resetArchiveVars, resetArchiveApps, resetArchiveBoth, garbageCollect
     case deleteVariable(String)
+    /// Asked right after naming a new program; locked programs run but never open in EDIT.
+    case programLock(String)
+    case programUnlock(String)
 
     var lines: [String] {
         switch self {
+        case .programLock(let n): return ["PROGRAM:\(n)", "", "Program Lock?", "", "A locked program can be", "run but not edited.", "1:No", "2:Yes"]
+        case .programUnlock(let n): return ["PROGRAM:\(n)", "", "This program is locked.", "", "", "", "1:Keep locked", "2:Unlock and edit"]
         case .resetRAM: return ["RESET RAM", "", "Resetting RAM erases all", "data, programs and apps", "from RAM.", "", "1:No", "2:Reset"]
         case .resetDefaults: return ["RESET DEFAULTS", "", "Resetting defaults", "restores every MODE,", "FORMAT and WINDOW", "setting.", "1:No", "2:Reset"]
         case .resetArchiveVars: return ["RESET ARC VARS", "", "Resetting ARCHIVE Vars", "erases all archived", "variables.", "", "1:No", "2:Reset"]

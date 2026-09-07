@@ -21,8 +21,8 @@ targets:
       properties:
         CFBundleDisplayName: Eighty4
         CFBundleName: Eighty4
-        CFBundleShortVersionString: "0.3.0"
-        CFBundleVersion: "3"
+        CFBundleShortVersionString: "1.0.0"
+        CFBundleVersion: "4"
         UILaunchScreen: {}
         UIRequiresFullScreen: true
         UIUserInterfaceStyle: Dark

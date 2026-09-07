@@ -21,6 +21,7 @@ enum Editors {
         switch id {
         case .mode:
             return EditorDef(title: nil, rows: [
+                .options(SettingRow(key: "mathprint", label: nil, options: ["MATHPRINT", "CLASSIC"])),
                 .options(SettingRow(key: "notation", label: nil, options: ["NORMAL", "SCI", "ENG"])),
                 .options(SettingRow(key: "float", label: nil, options: ["FLOAT", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"])),
                 .options(SettingRow(key: "angle", label: nil, options: ["RADIAN", "DEGREE"])),

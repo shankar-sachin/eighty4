@@ -145,8 +145,10 @@ struct MatrixEditorView: View {
     private let visibleRows = 7
 
     var body: some View {
-        let m = state.store.matrices[name] ?? [[0]]
+        let store = state.store
+        let m = store.matrixRows(name) ?? [[.zero]]
         let (rows, cols) = Matrix.dims(m)
+        let cell: (Cx) -> String = { ResultFormatter.format(Value.cx($0.re, $0.im), store: store) }
         let rowStart = max(0, state.matRow - (visibleRows - 1))
         let colStart = max(0, state.matCol - (visibleCols - 1))
         ZStack(alignment: .topLeading) {
@@ -162,7 +164,7 @@ struct MatrixEditorView: View {
                 ForEach(0..<min(visibleCols, cols - colStart), id: \.self) { c in
                     let ci = colStart + c
                     let isCursor = ri == state.matRow && ci == state.matCol
-                    let v = String(ResultFormatter.number(m[ri][ci]).prefix(cellWidth - 1))
+                    let v = String(cell(m[ri][ci]).prefix(cellWidth - 1))
                     let padded = String(repeating: " ", count: max(0, cellWidth - 1 - v.count)) + v
                     Cells(row: r + 1, col: 1 + c * cellWidth, text: padded, inverted: isCursor)
                 }
@@ -173,7 +175,7 @@ struct MatrixEditorView: View {
                 if state.matRow == -1 { return dimsTyping ? "" : "" }
                 let label = "\(state.matRow + 1),\(state.matCol + 1)="
                 if state.editorTyping { return label + String(state.editorBuffer) }
-                return label + ResultFormatter.number(m[min(rows - 1, state.matRow)][min(cols - 1, state.matCol)])
+                return label + cell(m[min(rows - 1, state.matRow)][min(cols - 1, state.matCol)])
             }()
             Cells(row: LCD.rows - 1, col: 0, text: String(bottom.prefix(LCD.cols)))
             if state.matRow >= 0 {

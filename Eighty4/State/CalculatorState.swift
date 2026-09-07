@@ -5,6 +5,29 @@ struct LCDLine: Identifiable {
     let id = UUID()
     var text: String
     var trailing: Bool
+    /// Full text pasted when this line is selected with ▲/▼ + ENTER; nil for non-selectable lines.
+    var source: String? = nil
+    /// Lines of one entry or answer share a group so they highlight together.
+    var group: Int = -1
+    /// An entry and its answer share a pair so DEL/CLEAR remove both.
+    var pair: Int = -1
+    /// The answer's value, so Ans can roll back when a pair is deleted.
+    var value: Value? = nil
+    /// Cell rows this line occupies (MathPrint fractions take two).
+    var rows: Int = 1
+
+    var layout: MathLayout {
+        MathPrint.containsTemplate(text) ? MathLayout.layout(text, width: CalculatorState.columns)
+                                         : MathLayout.layout(String(text.prefix(CalculatorState.columns)), width: CalculatorState.columns)
+    }
+}
+
+/// A history line or the entry positioned on the home screen.
+struct PlacedLine {
+    let line: LCDLine
+    /// Cell row of the line's top edge (may be negative when partly scrolled off).
+    let row: Int
+    let layout: MathLayout
 }
 
 @Observable
@@ -13,7 +36,7 @@ final class CalculatorState {
 
     static let columns = 26
     static let visibleRows = 10
-    static let version = "0.3.0"
+    static let version = "1.0.0"
 
     let store = VariableStore()
 
@@ -29,6 +52,13 @@ final class CalculatorState {
     var rclPending = false
     var homeEntryBackup: [Character] = []
     var homeCursorBackup = 0
+    /// Group of the history entry/answer highlighted with ▲/▼ (TI-84 Plus CE scroll-back).
+    var historySelection: Int? = nil
+    /// Lines the home screen is scrolled up from the bottom while a history item is selected.
+    var homeScroll = 0
+    private var nextGroup = 0
+    /// Letters typed in a row on a hardware keyboard; "sin" + "(" becomes the sin( token.
+    @ObservationIgnored var hardwareWord = ""
 
     // Shell / UI
     var showShellPicker = false
@@ -105,20 +135,100 @@ final class CalculatorState {
 
     // MARK: - Home display model
 
-    private var entryLineCount: Int { entry.count / Self.columns + 1 }
+    /// Entry text laid out on the grid (stacked templates in MATHPRINT mode).
+    var entryLayout: MathLayout { MathLayout.layout(entry, width: Self.columns) }
 
-    var displayLines: [LCDLine] {
-        var lines = history
-        var chunks = Self.chunk(String(entry), Self.columns)
-        while chunks.count < entryLineCount { chunks.append("") }
-        lines += chunks.map { LCDLine(text: $0, trailing: false) }
-        return Array(lines.suffix(Self.visibleRows))
+    private var historyRows: Int { history.reduce(0) { $0 + $1.rows } }
+
+    private var totalRows: Int { historyRows + entryLayout.totalRows }
+
+    /// Cell row (counting from the top of all history) shown at the top of the screen.
+    private var displayStart: Int { max(0, totalRows - Self.visibleRows - homeScroll) }
+
+    /// History lines and the entry, each with its top row on screen; lines partly scrolled off are included.
+    var placedLines: [PlacedLine] {
+        let start = displayStart
+        var out: [PlacedLine] = []
+        var row = 0
+        for line in history {
+            if row + line.rows > start, row < start + Self.visibleRows {
+                out.append(PlacedLine(line: line, row: row - start, layout: line.layout))
+            }
+            row += line.rows
+        }
+        let el = entryLayout
+        out.append(PlacedLine(line: LCDLine(text: String(entry), trailing: false, rows: el.totalRows), row: row - start, layout: el))
+        return out
     }
 
-    var cursorCell: (row: Int, col: Int) {
-        let total = history.count + entryLineCount
-        let start = max(0, total - Self.visibleRows)
-        return (history.count + cursor / Self.columns - start, cursor % Self.columns)
+    var displayLines: [LCDLine] { placedLines.map(\.line) }
+
+    /// Cursor position in cells: `row`/`col` are whole cells, `y` adds the half-row offset next to a fraction bar.
+    var cursorPosition: (row: Int, col: Int, x: Double, y: Double) {
+        let el = entryLayout
+        let c = el.cursor(at: cursor)
+        let top = historyRows - displayStart + el.rowStart(c.row)
+        return (top + Int(c.y), Int(c.x), c.x, Double(top) + c.y)
+    }
+
+    var cursorCell: (row: Int, col: Int) { let p = cursorPosition; return (p.row, p.col) }
+
+    // MARK: - History scroll-back (▲/▼ then ENTER pastes)
+
+    /// Moves the highlight to the previous (`step` < 0) or next history item; past the newest it returns to the entry line.
+    func selectHistory(step: Int) {
+        var groups: [Int] = []
+        for l in history where l.source != nil && groups.last != l.group { groups.append(l.group) }
+        guard !groups.isEmpty else { return }
+        if let sel = historySelection, let i = groups.firstIndex(of: sel) {
+            let j = i + (step < 0 ? -1 : 1)
+            if j < 0 { return }
+            historySelection = j < groups.count ? groups[j] : nil
+        } else if step < 0 {
+            historySelection = groups.last
+        }
+        scrollToSelection()
+    }
+
+    func clearHistorySelection() {
+        historySelection = nil
+        homeScroll = 0
+    }
+
+    /// Pastes the highlighted history item at the cursor. Returns false if nothing is selected.
+    @discardableResult
+    func pasteHistorySelection() -> Bool {
+        guard let sel = historySelection, let src = history.first(where: { $0.group == sel })?.source else { return false }
+        clearHistorySelection()
+        guard entry.count + src.count <= Self.columns * 8 else { return true }
+        entry.insert(contentsOf: src, at: cursor)
+        cursor += src.count
+        return true
+    }
+
+    /// DEL or CLEAR on a highlighted entry or answer removes that entry/answer pair from the scroll-back;
+    /// the highlight moves to the next newer item.
+    func deleteHistorySelection() {
+        guard let sel = historySelection, let pair = history.first(where: { $0.group == sel })?.pair else { return }
+        history.removeAll { $0.pair == pair }
+        historySelection = history.first(where: { $0.source != nil && $0.group > sel })?.group
+        store.ans = history.last(where: { $0.value != nil })?.value ?? .num(0)   // Ans follows what is still on screen
+        scrollToSelection()
+    }
+
+    private func scrollToSelection() {
+        guard let sel = historySelection else { homeScroll = 0; return }
+        var first: Int? = nil, last = 0
+        var row = 0
+        for l in history {
+            if l.group == sel { if first == nil { first = row }; last = row + l.rows - 1 }
+            row += l.rows
+        }
+        guard let first else { homeScroll = 0; return }
+        var start = displayStart
+        if first < start { start = first }
+        else if last >= start + Self.visibleRows { start = last - Self.visibleRows + 1 }
+        homeScroll = max(0, totalRows - Self.visibleRows - start)
     }
 
     var cursorGlyph: String? {
@@ -142,34 +252,57 @@ final class CalculatorState {
 
     // MARK: - Entry editing
 
+    // The entry line is edited in display tokens: "sin(", "√(", "L₁", "⁻¹" … each count as one
+    // unit for the cursor, DEL and overwrite, as on the real calculator.
+
     func insert(_ s: String) {
         guard entry.count + s.count <= Self.columns * 8 else { return }
-        for ch in s {
-            if !insertMode, cursor < entry.count {
-                entry[cursor] = ch
-            } else {
-                entry.insert(ch, at: cursor)
-            }
-            cursor += 1
+        if !insertMode, cursor < entry.count, !MathPrint.isTemplate(entry[cursor]) {
+            let r = Tokenizer.displayTokenRange(in: entry, containing: cursor)
+            entry.removeSubrange(r)
+            cursor = r.lowerBound
         }
+        entry.insert(contentsOf: s, at: cursor)
+        // A freshly inserted template opens with the cursor in its first slot.
+        if let f = s.first, f == MathPrint.fracOpen || f == MathPrint.mixedOpen || f == MathPrint.stackOpen { cursor += 1 }
+        else { cursor += s.count }
     }
 
     func deleteAtCursor() {
         if entry.isEmpty { return }
-        if cursor < entry.count {
-            entry.remove(at: cursor)
-        } else {
-            entry.removeLast()
-            cursor = entry.count
-        }
+        let pos = cursor < entry.count ? cursor : entry.count - 1
+        let r = MathPrint.templateRange(in: entry, containing: pos) ?? Tokenizer.displayTokenRange(in: entry, containing: pos)
+        entry.removeSubrange(r)
+        cursor = r.lowerBound
     }
 
-    func appendHistory(expr: String, result: String) {
-        for c in Self.chunk(expr, Self.columns) {
-            history.append(LCDLine(text: c, trailing: false))
+    func moveCursorLeft() {
+        guard cursor > 0 else { return }
+        cursor = Tokenizer.displayTokenRange(in: entry, containing: min(cursor, entry.count) - 1).lowerBound
+    }
+
+    func moveCursorRight() {
+        guard cursor < entry.count else { return }
+        cursor = Tokenizer.displayTokenRange(in: entry, containing: cursor).upperBound
+    }
+
+    func appendHistory(expr: String, result: String, value: Value? = nil) {
+        let exprGroup = nextGroup, resultGroup = nextGroup + 1
+        nextGroup += 2
+        if MathPrint.containsTemplate(expr) {
+            // Stacked templates wrap inside their layout, so the whole entry is one (taller) line.
+            history.append(LCDLine(text: expr, trailing: false, source: expr, group: exprGroup, pair: exprGroup, rows: MathLayout.layout(expr, width: Self.columns).totalRows))
+        } else {
+            for c in Self.chunk(expr, Self.columns) {
+                history.append(LCDLine(text: c, trailing: false, source: expr, group: exprGroup, pair: exprGroup))
+            }
         }
-        for line in result.split(separator: "\n", omittingEmptySubsequences: false) {
-            history.append(LCDLine(text: String(line), trailing: true))
+        let resultLines = result.split(separator: "\n", omittingEmptySubsequences: false)
+        let pasteable = resultLines.count == 1 ? result : nil   // multi-line answers (matrices) can't be re-entered as text
+        for line in resultLines {
+            let text = String(line)
+            let rows = MathPrint.containsTemplate(text) ? MathLayout.layout(text, width: Self.columns).totalRows : 1
+            history.append(LCDLine(text: text, trailing: true, source: pasteable, group: resultGroup, pair: exprGroup, value: value, rows: rows))
         }
         if history.count > 80 { history.removeFirst(history.count - 80) }
     }
@@ -208,6 +341,7 @@ final class CalculatorState {
             if store.entries.count > 40 { store.entries.removeFirst() }
         }
         historyIndex = nil
+        clearHistorySelection()
         if ProgramRunner.isStatement(text) {
             for c in Self.chunk(text, Self.columns) { history.append(LCDLine(text: c, trailing: false)) }
             entry = []
@@ -216,9 +350,9 @@ final class CalculatorState {
             return
         }
         do {
-            let v = try Evaluator.evaluate(text, ctx: EvalContext(store: store))
+            let v = store.answerForm(try Evaluator.evaluate(text, ctx: EvalContext(store: store)), entryUsedFraction: text.contains(MathPrint.fracOpen))
             if case .str(let s) = v, s == "Done" {} else { store.ans = v }
-            appendHistory(expr: text, result: ResultFormatter.format(v, store: store))
+            appendHistory(expr: text, result: ResultFormatter.format(v, store: store, mathPrint: store.mathPrint), value: v)
             entry = []
             cursor = 0
             if store.pendingClrHome { history = []; store.pendingClrHome = false }

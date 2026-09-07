@@ -60,7 +60,7 @@ final class FeatureTests: XCTestCase {
     }
 
     func testParametricPolarAndSequenceGraphs() {
-        keys([.mode, .down, .down, .down, .right, .enter, .second, .mode])
+        keys([.mode, .down, .down, .down, .down, .right, .enter, .second, .mode])
         XCTAssertEqual(s.store.graphType, .parametric)
         keys([.yEquals])
         XCTAssertEqual(s.yKeys.first, "X1T")
@@ -160,6 +160,8 @@ final class FeatureTests: XCTestCase {
         keys([.prgm, .right, .right, .enter])
         XCTAssertEqual(s.screen, .programName)
         keys([.math, .sin, .enter])                           // alpha-lock: A E → "AE"
+        XCTAssertEqual(s.screen, .confirm(.programLock("AE")))
+        keys([.one])                                          // 1:No lock
         XCTAssertEqual(s.screen, .programEditor("AE"))
         keys([.one, .plus, .one, .enter, .two])
         s.commitProgramLine()

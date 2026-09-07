@@ -15,16 +15,22 @@ A TI-84 Plus CE replica for iPhone, built in SwiftUI. No ROM, no emulation: the 
 **Home screen**
 - 26-column × 10-line display with the status bar, battery, blinking cursor, 2nd (↑) and alpha (A) indicators, INS underline cursor.
 - TI-style results: 10 significant digits, `.5` without a leading zero, `⁻` negation glyph, `ᴇ` exponent notation, NORMAL / SCI / ENG and FLOAT / FIX 0–9 from the MODE screen.
-- ↑ / ↓ scroll through previous entries, 2nd+ENTRY recalls the last one, 2nd+RCL pastes a variable's value.
+- ↑ / ↓ scroll back through previous entries and answers like the CE: ENTER pastes the highlighted one at the cursor, DEL or CLEAR removes that entry/answer pair (Ans follows what is left on screen). 2nd+ENTRY recalls the last entry, 2nd+RCL pastes a variable's value. CLEAR on an empty line wipes the screen and resets Ans to 0.
+- DEL, ◀/▶ and overwrite work on whole tokens: `sin(` or `√(` goes in one press, as on the real keypad.
+- MODE **MATHPRINT / CLASSIC**: in MathPrint the MATH FRAC menu inserts stacked `n/d` and `Un/d` templates (dotted boxes for empty slots, ◀/▶ move between numerator and denominator, DEL removes the whole template), MATH `piecewise(` asks for 1–5 pieces and draws the brace, and fraction answers come back stacked. MODE **ANSWERS** AUTO / DEC / FRAC decides whether `1/2+1/4` shows `3/4` or `.75`. CLASSIC keeps everything on one line.
+- Hardware keyboard (iPad keyboard, Mac, simulator): digits and operators type directly, letters go through alpha, `sin(` / `randint(` typed as words become the function tokens, `! % < > = ≠ ≤ ≥ ° ' _ π √ { } [ ]` insert their tokens, Return = ENTER, Esc = CLEAR, Backspace/Delete = DEL, arrows = D-pad, F1–F5 = y= window zoom trace graph.
 - Errors show the real `ERR:` screen with 1:Quit / 2:Goto.
 
 **Math engine**
 - Reals, fractions (`▶Frac`), lists (`{1,2,3}`, L₁–L₆), and matrices (`[[1,2][3,4]]`, [A]–[J]) with TI precedence, implicit multiplication, and `→` store into A–Z, θ, lists, matrices, and Y-vars.
-- MATH: `▶Frac ▶Dec ³ ³√( ˣ√ fMin( fMax( nDeriv( fnInt( Σ( logBASE(` and the numeric **Solver** (eqn:0=, variable list, alpha+ENTER solves), NUM, CMPLX (real-valued), PROB (`rand nPr nCr ! randInt( randNorm( randBin( randIntNoRep(`), FRAC with `Un/d` mixed numbers (`3_1/2`).
+- MATH: `▶Frac ▶Dec ³ ³√( ˣ√ fMin( fMax( nDeriv( fnInt( Σ( logBASE(` and the numeric **Solver** (eqn:0=, variable list, alpha+ENTER solves), NUM (incl. `toString( eval(`), PROB (`rand nPr nCr ! randInt( randNorm( randBin( randIntNoRep(`), FRAC with `Un/d` mixed numbers (`3_1/2`), `%`.
+- Complex lists: `{1+i,2}`, element-wise `+ − × ÷ ^ ²`, `conj( real( imag( abs( angle( sum( prod( mean( dim( cumSum( augment(`, stored in L₁–L₆.
+- Complex matrices: `[[1,i][2,3]]`, `[A]×i`, `+ − × ² ^n ⁻¹ ᵀ det( conj( real( imag( abs( dim( augment( cumSum( ref( rref( rowSwap( row+( *row( *row+( Fill( Matr▶list( List▶matr(`, stored in [A]–[J] and typed straight into the matrix editor (`3+i` in a cell). MATH `piecewise(expr,cond,…)` evaluates lazily and graphs.
+- Complex numbers: `i` (2nd+.) in any mode, `+ − × ÷ ^ ² ⁻¹ √( ln( log( e^( abs( conj( real( imag( angle( ▶Rect ▶Polar`, complex values in A–Z/θ, and the MODE `REAL / a+bi / re^θi` setting: `√(⁻4)` and `(⁻8)^(1/3)` give `2i` and `1+1.732050808i` in a+bi mode, `ERR:NONREAL ANS` in REAL mode; `re^θi` shows `2e^(1.570796327i)`.
 - TEST and LOGIC operators, ANGLE (`° ' ʳ ▶DMS R▶Pr( R▶Pθ( P▶Rx( P▶Ry(`), radian/degree modes.
 - LIST OPS and MATH (`SortA( SortD( dim( Fill( seq( cumSum( ΔList( augment( min( max( mean( median( sum( prod( stdDev( variance(`).
 - MATRIX MATH (`det( ᵀ dim( Fill( identity( randM( augment( Matr▶list( List▶matr( cumSum( ref( rref( rowSwap( row+( *row( *row+(`), inverse, powers, and a spreadsheet-style matrix editor.
-- DISTR: `normalpdf normalcdf invNorm invT tpdf tcdf χ²pdf χ²cdf Fpdf Fcdf binompdf binomcdf poissonpdf poissoncdf geometpdf geometcdf`, and DRAW `ShadeNorm( Shade_t( Shadeχ²( ShadeF(` shade the density on the graph screen.
+- DISTR: `normalpdf normalcdf invNorm invT tpdf tcdf χ²pdf χ²cdf Fpdf Fcdf binompdf binomcdf invBinom poissonpdf poissoncdf geometpdf geometcdf`, and DRAW `ShadeNorm( Shade_t( Shadeχ²( ShadeF(` shade the density on the graph screen.
 - STAT: list editor for L₁–L₆, CALC with 1-Var Stats, 2-Var Stats, Med-Med, LinReg (both forms), QuadReg, CubicReg, QuartReg, LnReg, ExpReg, PwrReg, Logistic, SinReg. Results land in the VARS Statistics variables and `RegEQ`.
 - STAT TESTS: all 17 editors (Z-Test, T-Test, 2-Samp Z/T, 1-Prop/2-Prop Z, the Z/T/prop intervals, χ²-Test, χ²GOF-Test, 2-SampFTest, LinRegTTest, LinRegTInt) with Data/Stats input, Calculate or Draw (shaded p-value), plus `ANOVA(`. Results go to VARS Statistics TEST.
 - Strings: `"…"→Str1`, concatenation with `+`, `length( sub( inString( expr(`.
@@ -41,8 +47,8 @@ A TI-84 Plus CE replica for iPhone, built in SwiftUI. No ROM, no emulation: the 
 
 **Everything else on the keypad**
 - MODE, FORMAT, TBLSET, STAT PLOT editors that look and navigate like the originals.
-- APPS: **GeoDash** (one level, ↑/enter to jump), **Tetris** (←→ move, ↑ rotate, ↓ soft drop, enter hard drop), **Finance** (a working TVM Solver; alpha+ENTER solves the highlighted row), **CabriJr** (points, segments, lines, circles, triangles, distance), **CelSheet** (spreadsheet with A1-style formulas and ranges), **Conics** (graph + center/vertices/foci/eccentricity), **Inequalz** (Y= relations shaded on the graph), **PlySmlt2** (polynomial roots incl. complex, simultaneous equations), **Prob Sim** (coins, dice, marbles, spinner, cards, random numbers), **SciTools** (sig-fig calculator, unit converter, data wizard, vector calculator), **Transfrm** (Y₁ with live A B C D sliders) and **Vernier EasyData** (sensor front-end; reports no sensor without hardware).
-- PRGM: EXEC runs the two games and your TI-BASIC programs, EDIT opens the program editor (PRGM key inside it shows the CTL / I/O / EXEC menus), NEW creates one. The interpreter handles `Disp Input Prompt Output( ClrHome Pause If/Then/Else For( While Repeat End Lbl Goto Menu( IS>( DS<( Return Stop DelVar DispGraph DispTable getKey prgmNAME` and every expression/command the home screen accepts. Errors offer 2:Goto into the editor.
+- APPS: **GeoDash** (one level, ↑/enter to jump), **Tetris** (←→ move, ↑ rotate, ↓ soft drop, enter hard drop), **Finance** (a working TVM Solver; alpha+ENTER solves the highlighted row), **CabriJr** (points, segments, lines, circles, triangles, distance), **CelSheet** (spreadsheet with A1-style formulas and ranges), **Conics** (graph + center/vertices/foci/eccentricity), **Inequalz** (Y= and X= relations shaded on the graph), **PlySmlt2** (polynomial roots incl. complex, simultaneous equations), **Prob Sim** (coins, dice, marbles, spinner, cards, random numbers), **SciTools** (sig-fig calculator, unit converter, data wizard, vector calculator), **Transfrm** (Y₁ with live A B C D sliders) and **Vernier EasyData** (sensor front-end; reports no sensor without hardware).
+- PRGM: EXEC runs the two games and your TI-BASIC programs, EDIT opens the program editor (PRGM key inside it shows the CTL / I/O / EXEC menus), NEW creates one and asks "Program Lock?": a locked program runs from EXEC but shows [LOCKED] in EDIT and must be unlocked (2:Unlock) before it opens. The interpreter handles `Disp Input Prompt Output( ClrHome Pause If/Then/Else For( While Repeat End Lbl Goto Menu( IS>( DS<( Return Stop DelVar DispGraph DispTable getKey prgmNAME` and every expression/command the home screen accepts. Errors offer 2:Goto into the editor.
 - MEM: About, Mem Management/Delete by category (DEL deletes, ENTER archives), Clear Entries, Archive/UnArchive, Reset (RAM, defaults, ARCHIVE vars/apps/both with the 1:No 2:Reset screens), Group/Ungroup, Garbage Collect. LINK shows the send/receive flow. CATALOG lists every token, alphabetically, with letter jumps.
 - 2nd+OFF turns the screen off; ON turns it back on.
 
@@ -78,6 +84,7 @@ Useful for screenshots. `-demo` wipes saved memory first.
 | `-demo solver`, `param`, `polar`, `seq`, `seqyeq`, `zbox`, `shade` | Solver, graph modes, ZBox, ShadeNorm |
 | `-demo ztest`, `ztestedit`, `ztestdraw` | STAT TESTS editor, results and DRAW |
 | `-demo prgm`, `prgmedit`, `mem` | Program run / editor, MEM management |
+| `-demo complex`, `inequalz`, `prgmlock` | Complex results and a complex list in a+bi mode, Inequalz Y= and X= shading, the "Program Lock?" screen |
 | `-demo plysmlt`, `conics`, `probsim`, `celsheet` | The new apps |
 | `-shell radicalRed` | Force a shell colorway (any `ShellColor` raw value) |
 
@@ -104,6 +111,8 @@ assets/logo.png        source logo (app icon + wordmark badge)
 
 ## Version history
 
+- **1.0.0** — MathPrint: MODE MATHPRINT/CLASSIC with stacked n/d and Un/d fraction templates, piecewise( with its brace (1–5 pieces), stacked fraction answers and MODE ANSWERS AUTO/DEC/FRAC; complex matrices everywhere real ones work, including the matrix editor; `▶Frac`/`▶Dec`/… convert the whole entry (`1÷4▶Frac` is `1/4`, not `1÷(4▶Frac)`); fixed a crash in `identity(`.
+- **0.4.0** — Complex arithmetic with the REAL / a+bi / re^θi modes and ERR:NONREAL ANS, complex variables and complex lists, Program Lock on PRGM NEW, `toString( eval( invBinom( %`; CE-style ↑/↓ scroll-back with ENTER paste and DEL/CLEAR pair removal; token-wise DEL/cursor/overwrite; hardware keyboard input; Inequalz X= relations.
 - **0.3.0** — Nothing says "not available" any more: MATH Solver, Un/d, DISTR DRAW shading, Fill/Matr▶list/List▶matr/row ops, GDB/Pic/String variables, PARAM/POLAR/SEQ graphing with matching Y=/WINDOW/TABLE, all STAT TESTS + ANOVA + Logistic/SinReg, DRAW Tangent/Shade/DrawInv/Pen/pixel ops/StorePic/BackgroundOn, ZBox/ZFrac/SetFactors, MEM archive/groups/garbage collect/reset archive with confirm screens, a TI-BASIC program editor + interpreter, and nine more apps (CabriJr, CelSheet, Conics, Inequalz, PlySmlt2, Prob Sim, SciTools, Transfrm, Vernier).
 - **0.2.0** — Every 2nd function and menu key works: menus, MODE/FORMAT/WINDOW/TBLSET/STAT PLOT editors, Y= and graphing with TRACE / CALC / TABLE / ZOOM, lists, matrices and their editors, stats and regressions, distributions, TVM solver, CATALOG, MEM, LINK, GeoDash and Tetris apps, shell color button, LCD fills the bezel, ENTER works under 2nd/alpha, history recall on ↑/↓.
 - **0.1.0** — Faithful body and keypad, home-screen arithmetic, shell colorways.

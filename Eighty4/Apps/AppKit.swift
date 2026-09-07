@@ -93,10 +93,14 @@ struct AppField {
     }
 }
 
-/// Complex number used by the polynomial root finder.
-struct Cx: Equatable {
+/// Complex number used by complex lists/matrices and the polynomial root finder.
+struct Cx: Equatable, MatrixScalar {
     var re: Double
     var im: Double
+
+    static var zero: Cx { Cx(re: 0, im: 0) }
+    static var one: Cx { Cx(re: 1, im: 0) }
+    var magnitude: Double { hypot(re, im) }
 
     static func + (a: Cx, b: Cx) -> Cx { Cx(re: a.re + b.re, im: a.im + b.im) }
     static func - (a: Cx, b: Cx) -> Cx { Cx(re: a.re - b.re, im: a.im - b.im) }

@@ -46,11 +46,23 @@ struct Parser {
         switch target {
         case .variable(let name):
             if Tokenizer.windowVars.contains(name) { store.numbers[name] = try v.number() }
-            else { store.reals[name] = try v.number() }
+            else if case .complex(let re, let im) = v {
+                store.complexes[name] = [re, im]
+                store.reals.removeValue(forKey: name)
+            } else {
+                store.reals[name] = try v.number()
+                store.complexes.removeValue(forKey: name)
+            }
         case .listVar(let name):
-            store.lists[name] = try v.listValue()
+            if case .clist(let l) = v {
+                store.complexLists[name] = l.map { [$0.re, $0.im] }
+                store.lists[name] = []
+            } else {
+                store.lists[name] = try v.listValue()
+                store.complexLists.removeValue(forKey: name)
+            }
         case .matVar(let name):
-            store.matrices[name] = try v.matrixValue()
+            try store.setMatrix(name, v)
         case .yVar(let n):
             guard case .str(let s) = v else { throw CalcError.dataType }
             store.yFuncs[n] = s
@@ -67,7 +79,15 @@ struct Parser {
 
     // MARK: - Precedence chain
 
-    private mutating func expr() throws -> Value { try logicOr() }
+    /// Conversions (▶Frac ▶Dec ▶DMS ▶F◀▶D ▶Rect ▶Polar ▶n/d◀▶Un/d) apply to the whole expression, as on the CE.
+    private mutating func expr() throws -> Value {
+        var v = try logicOr()
+        while let t = peek, case .postfix(let p) = t, p.hasPrefix("▶") {
+            advance()
+            v = try Postfix.apply(p, v, ctx)
+        }
+        return v
+    }
 
     private mutating func logicOr() throws -> Value {
         var v = try logicAnd()
@@ -149,7 +169,7 @@ struct Parser {
 
     private mutating func postfix() throws -> Value {
         var v = try primary()
-        while let t = peek, case .postfix(let p) = t {
+        while let t = peek, case .postfix(let p) = t, !p.hasPrefix("▶") {
             advance()
             v = try Postfix.apply(p, v, ctx)
         }
@@ -172,6 +192,7 @@ struct Parser {
         case .pi: advance(); return .num(.pi)
         case .e: advance(); return .num(M_E)
         case .ans: advance(); return store.ans
+        case .imaginary: advance(); return .complex(0, 1)
         case .nullary(let name): advance(); return try Functions.call(name, [], ctx)
         case .variable(let name):
             advance()
@@ -181,15 +202,17 @@ struct Parser {
                 try closeParen()
                 return .num(try Sequences.value(name, n: Int(n.rounded()), store: store, depth: ctx.depth))
             }
+            if let c = store.complexes[name], c.count == 2, store.overrides[name] == nil { return Value.cx(c[0], c[1]) }
             return .num(store.lookupReal(name))
         case .listVar(let name):
             advance()
+            if let c = store.complexLists[name] { return .clist(c.map { Cx(re: $0.first ?? 0, im: $0.count > 1 ? $0[1] : 0) }) }
             guard let l = store.lists[name] else { throw CalcError.undefined }
             return .list(l)
         case .matVar(let name):
             advance()
-            guard let m = store.matrices[name] else { throw CalcError.undefined }
-            return .matrix(m)
+            guard let m = store.matrixValue(name) else { throw CalcError.undefined }
+            return m
         case .yVar(let n):
             advance()
             return try evalFunc("Y\(n)")
@@ -207,23 +230,25 @@ struct Parser {
             return v
         case .lbrace:
             advance()
-            var items: [Double] = []
+            var items: [(Double, Double)] = []
             if peek == .rbrace { advance(); return .list([]) }
             while true {
-                items.append(try expr().number())
+                guard let z = try expr().asComplex else { throw CalcError.dataType }
+                items.append(z)
                 if peek == .comma { advance(); continue }
                 break
             }
             if peek == .rbrace { advance() } else if pos != tokens.count { throw CalcError.syntax }
-            return .list(items)
+            return Value.fromComplexElements(items)
         case .lbracket:
             advance()
-            var rows: [[Double]] = []
+            var rows: [[Cx]] = []
             while peek == .lbracket {
                 advance()
-                var row: [Double] = []
+                var row: [Cx] = []
                 while true {
-                    row.append(try expr().number())
+                    guard let z = try expr().asComplex else { throw CalcError.dataType }
+                    row.append(Cx(re: z.0, im: z.1))
                     if peek == .comma { advance(); continue }
                     break
                 }
@@ -233,7 +258,21 @@ struct Parser {
             }
             if peek == .rbracket { advance() } else if pos != tokens.count { throw CalcError.syntax }
             guard !rows.isEmpty, Set(rows.map(\.count)).count == 1 else { throw CalcError.invalidDim }
-            return .matrix(rows)
+            return Value.fromComplexRows(rows)
+        case .fracOpen:
+            return try fractionTemplate()
+        case .mixedOpen:
+            // Un/d template: whole number slot, then the fraction template.
+            advance()
+            var wholeTokens: [Token] = []
+            while let t = peek, t != .fracOpen { wholeTokens.append(t); advance() }
+            guard peek == .fracOpen else { throw CalcError.syntax }
+            let whole = try evalSliceValue(wholeTokens)
+            let frac = try fractionTemplate()
+            guard let w = whole.asDouble else { throw CalcError.dataType }
+            let sign: Double = w < 0 ? -1 : 1
+            if w.rounded() == w, case .fraction(let n, let d) = frac { return .fraction(Int(w) * d + Int(sign) * n, d) }
+            return try Value.apply(.add, whole, try Value.apply(.mul, .num(sign), frac))
         case .function(let name):
             advance()
             guard peek == .lparen else { throw CalcError.syntax }
@@ -251,6 +290,31 @@ struct Parser {
         default:
             throw CalcError.syntax
         }
+    }
+
+    /// ⌈n⌉/⌊d⌋: integer numerator and denominator give an exact fraction, anything else divides.
+    private mutating func fractionTemplate() throws -> Value {
+        guard peek == .fracOpen else { throw CalcError.syntax }
+        advance()
+        let n = try expr()
+        guard peek == .fracSep else { throw CalcError.syntax }
+        advance()
+        let d = try expr()
+        if peek == .fracClose { advance() } else if pos != tokens.count { throw CalcError.syntax }
+        // Integer (or already-fractional) slots keep the result exact: ⌈⌈1⌉/⌊2⌋⌉/⌊3⌋ = 1/6.
+        func rational(_ v: Value) -> (Int, Int)? {
+            if case .fraction(let a, let b) = v { return (a, b) }
+            if let a = v.asDouble, a.rounded() == a, abs(a) < 1e12 { return (Int(a), 1) }
+            return nil
+        }
+        if let (a, b) = rational(n), let (c, e) = rational(d) {
+            guard c != 0 else { throw CalcError.divideByZero }
+            var num = a * e, den = b * c
+            if den < 0 { num = -num; den = -den }
+            let g = max(1, Stats.gcd(abs(num), den))
+            return .fraction(num / g, den / g)
+        }
+        return try Value.apply(.div, n, d)
     }
 
     private func evalFunc(_ key: String) throws -> Value {
@@ -384,41 +448,55 @@ struct Parser {
         case "Fill":
             // Fill(value, Ln) or Fill(value, [A])
             guard slices.count == 2, slices[1].count == 1 else { throw CalcError.argument }
-            let value = try evalSlice(slices[0])
+            guard let value = try evalSliceValue(slices[0]).asComplex else { throw CalcError.dataType }
             switch slices[1][0] {
             case .listVar(let l):
-                store.lists[l] = (store.lists[l] ?? []).map { _ in value }
+                let n = store.complexLists[l]?.count ?? store.lists[l]?.count ?? 0
+                try storeValue(Value.fromComplexElements(Array(repeating: value, count: n)), into: .listVar(l))
             case .matVar(let m):
                 guard let mm = store.matrices[m] else { throw CalcError.undefined }
-                store.matrices[m] = mm.map { $0.map { _ in value } }
+                store.setMatrix(m, mm.map { $0.map { _ in Cx(re: value.0, im: value.1) } })
             default: throw CalcError.argument
             }
             return .str("Done")
         case "Matr▶list":
             // Matr▶list([A], L1, L2…) or Matr▶list([A], col, L1)
-            guard slices.count >= 2, slices[0].count == 1, case .matVar(let m) = slices[0][0], let mm = store.matrices[m] else { throw CalcError.argument }
-            let cols = Matrix.transpose(mm)
+            guard slices.count >= 2, slices[0].count == 1, case .matVar(let m) = slices[0][0], let mm = store.matrixRows(m) else { throw CalcError.argument }
+            let cols = Matrix.transpose(mm).map { Value.fromComplexElements($0.map { ($0.re, $0.im) }) }
             if slices.count == 3, slices[2].count == 1, case .listVar(let l) = slices[2][0], slices[1].count == 1, case .number(let c) = slices[1][0] {
                 let ci = Int(c) - 1
                 guard ci >= 0, ci < cols.count else { throw CalcError.invalidDim }
-                store.lists[l] = cols[ci]
+                try storeValue(cols[ci], into: .listVar(l))
                 return .str("Done")
             }
             for (i, s) in slices.dropFirst().enumerated() {
                 guard s.count == 1, case .listVar(let l) = s[0] else { throw CalcError.argument }
                 guard i < cols.count else { break }
-                store.lists[l] = cols[i]
+                try storeValue(cols[i], into: .listVar(l))
             }
             return .str("Done")
         case "List▶matr":
             // List▶matr(L1, L2, …, [A])
             guard slices.count >= 2, slices.last!.count == 1, case .matVar(let m) = slices.last![0] else { throw CalcError.argument }
-            var cols: [[Double]] = []
-            for s in slices.dropLast() { cols.append(try evalSliceValue(s).listValue()) }
+            var cols: [[Cx]] = []
+            for s in slices.dropLast() {
+                guard let xs = try evalSliceValue(s).asComplexElements else { throw CalcError.dataType }
+                cols.append(xs.map { Cx(re: $0.0, im: $0.1) })
+            }
             let rows = cols.map(\.count).max() ?? 0
             guard rows > 0 else { throw CalcError.invalidDim }
-            store.matrices[m] = (0..<rows).map { r in cols.map { r < $0.count ? $0[r] : 0 } }
+            store.setMatrix(m, (0..<rows).map { r in cols.map { r < $0.count ? $0[r] : .zero } })
             return .str("Done")
+        case "piecewise":
+            // piecewise(expr1, cond1, expr2, cond2, …[, else]) — conditions are evaluated in order, lazily.
+            guard !slices.isEmpty else { throw CalcError.argument }
+            var i = 0
+            while i < slices.count {
+                if i + 1 == slices.count { return try evalSliceValue(slices[i]) }
+                if try evalSlice(slices[i + 1]) != 0 { return try evalSliceValue(slices[i]) }
+                i += 2
+            }
+            throw CalcError.domain
         case "Tangent":
             guard slices.count == 2 else { throw CalcError.argument }
             let x = try evalSlice(slices[1])
@@ -432,11 +510,12 @@ struct Parser {
             store.drawings.append(.shade(sliceText(slices[0]), sliceText(slices[1]), xl, xr))
             store.pendingShowGraph = true
             return .str("Done")
-        case "expr":
+        case "expr", "eval":
             guard slices.count == 1 else { throw CalcError.argument }
             guard case .str(let s) = try evalSliceValue(slices[0]) else { throw CalcError.dataType }
             guard ctx.depth < 8 else { throw CalcError.undefined }
-            return try Evaluator.evaluate(s, ctx: EvalContext(store: store, depth: ctx.depth + 1))
+            let v = try Evaluator.evaluate(s, ctx: EvalContext(store: store, depth: ctx.depth + 1))
+            return name == "eval" ? .str(ResultFormatter.format(v, store: store)) : v
         default:
             throw CalcError.syntax
         }
@@ -450,7 +529,9 @@ enum Postfix {
         case "²": return try Value.apply(.mul, v, v)
         case "³": return try Value.apply(.mul, try Value.apply(.mul, v, v), v)
         case "⁻¹":
+            if v.isComplex { return try Value.apply(.div, .num(1), v) }
             if case .matrix(let m) = v { return .matrix(try Matrix.inverse(m)) }
+            if case .cmatrix(let m) = v { return Value.fromComplexRows(try Matrix.inverse(m)) }
             return try v.mapNumbers { if $0 == 0 { throw CalcError.divideByZero }; return 1 / $0 }
         case "!":
             return try v.mapNumbers { x in
@@ -459,10 +540,12 @@ enum Postfix {
                 if (x * 2).rounded() != x * 2 { throw CalcError.domain }
                 return tgamma(x + 1)
             }
+        case "%": return try v.mapNumbers { $0 / 100 }
         case "°": return try v.mapNumbers { degrees ? $0 : $0 * .pi / 180 }
         case "ʳ": return try v.mapNumbers { degrees ? $0 * 180 / .pi : $0 }
         case "'": return try v.mapNumbers { degrees ? $0 / 60 : $0 / 60 * .pi / 180 }
         case "ᵀ":
+            if case .cmatrix(let m) = v { return .cmatrix(Matrix.transpose(m)) }
             guard case .matrix(let m) = v else { throw CalcError.dataType }
             return .matrix(Matrix.transpose(m))
         case "▶Frac", "▶n/d◀▶Un/d":
@@ -473,7 +556,8 @@ enum Postfix {
             if case .fraction = v { return .num(try v.number()) }
             let x = try v.number()
             return Value.fraction(from: x) ?? .num(x)
-        case "▶Rect", "▶Polar": return v
+        case "▶Rect": ctx.store.pendingComplexForm = 1; return v
+        case "▶Polar": ctx.store.pendingComplexForm = 2; return v
         case "▶DMS":
             let x = try v.number()
             let sign = x < 0 ? "⁻" : ""
@@ -492,12 +576,15 @@ enum Postfix {
 
 enum Evaluator {
     static func evaluate(_ text: String, ctx: EvalContext) throws -> Value {
+        Value.complexResults = ctx.store.options["complex", default: 0] > 0
+        if ctx.depth == 0 { ctx.store.pendingComplexForm = nil }
         let tokens = try Tokenizer.tokenize(text)
         var parser = Parser(tokens: tokens, ctx: ctx)
         let v = try parser.parseStatement()
         if let d = v.asDouble {
             if !d.isFinite || abs(d) >= 1e100 { throw CalcError.overflow }
         }
+        if case .complex(let re, let im) = v, !re.isFinite || !im.isFinite || hypot(re, im) >= 1e100 { throw CalcError.overflow }
         return v
     }
 
@@ -529,8 +616,8 @@ enum Commands {
         case "ClrHome": store.pendingClrHome = true
         case "ClrDraw": store.drawings = []
         case "ClrTable": break
-        case "ClrAllLists": for k in store.lists.keys { store.lists[k] = [] }
-        case "ClrList": for t in args { if case .listVar(let n) = t { store.lists[n] = [] } }
+        case "ClrAllLists": for k in store.lists.keys { store.lists[k] = [] }; store.complexLists = [:]
+        case "ClrList": for t in args { if case .listVar(let n) = t { store.lists[n] = []; store.complexLists.removeValue(forKey: n) } }
         case "PlotsOff": for i in 1...3 { store.options["plot\(i)On"] = 1 }
         case "PlotsOn": for i in 1...3 { store.options["plot\(i)On"] = 0 }
         case "Degree": store.options["angle"] = 1
@@ -564,6 +651,8 @@ enum Commands {
         case "Sequential": store.options["seq"] = 0
         case "Simul": store.options["seq"] = 1
         case "Real": store.options["complex"] = 0
+        case "a+bi": store.options["complex"] = 1
+        case "re^θi": store.options["complex"] = 2
         case "Full": store.options["screen"] = 0
         case "Horiz": store.options["screen"] = 1
         case "G-T": store.options["screen"] = 2
@@ -638,7 +727,7 @@ extension Tokenizer {
         case .lbracket: return "["; case .rbracket: return "]"; case .comma: return ","; case .store: return "→"
         case .function(let n): return n + "("
         case .nullary(let n): return n
-        case .pi: return "π"; case .e: return "e"; case .ans: return "Ans"
+        case .pi: return "π"; case .e: return "e"; case .ans: return "Ans"; case .imaginary: return "i"
         case .variable(let v): return v
         case .listVar(let l): return "L" + subscripts[Int(l.dropFirst()) ?? 1]
         case .matVar(let m): return "[\(m)]"
@@ -649,6 +738,7 @@ extension Tokenizer {
         case .gdbVar(let n): return "GDB\(n)"
         case .prgm(let p): return "prgm" + p
         case .command(let c): return c
+        case .fracOpen: return "("; case .fracSep: return ")/("; case .fracClose: return ")"; case .mixedOpen: return ""
         }
     }
 }

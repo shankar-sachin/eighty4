@@ -10,6 +10,7 @@ enum Token: Equatable {
     case function(String)      // name without the "("
     case nullary(String)       // rand getKey
     case pi, e, ans
+    case imaginary             // i
     case variable(String)      // A–Z θ a b c d r n, window/stat variables
     case listVar(String)       // "L1"
     case matVar(String)        // "A"
@@ -20,11 +21,13 @@ enum Token: Equatable {
     case gdbVar(Int)           // GDB0…GDB9
     case prgm(String)          // prgmNAME
     case command(String)
+    /// MathPrint templates: ⌈n⌉/⌊d⌋ fraction and the Un/d whole-number slot in front of one.
+    case fracOpen, fracSep, fracClose, mixedOpen
 
     var startsPrimary: Bool {
         switch self {
         case .number, .string, .lparen, .lbrace, .lbracket, .function, .nullary,
-             .pi, .e, .ans, .variable, .listVar, .matVar, .yVar, .namedFunc, .strVar:
+             .pi, .e, .ans, .imaginary, .variable, .listVar, .matVar, .yVar, .namedFunc, .strVar, .fracOpen, .mixedOpen:
             return true
         default:
             return false
@@ -50,7 +53,7 @@ enum Tokenizer {
                            "ZStandard", "ZDecimal", "ZSquare", "ZTrig", "ZInteger", "ZoomStat", "ZoomFit",
                            "ZPrevious", "ZoomSto", "ZoomRcl", "ZoomIn", "ZoomOut", "ZQuadrant1",
                            "ZFrac1/2", "ZFrac1/3", "ZFrac1/4",
-                           "Connected", "Dot", "Sequential", "Simul", "Real", "Full", "Horiz", "G-T",
+                           "Connected", "Dot", "Sequential", "Simul", "Real", "a+bi", "re^θi", "Full", "Horiz", "G-T",
                            "Clear Entries", "DiagnosticOn", "DiagnosticOff", "SetUpEditor",
                            "Horizontal", "Vertical", "DrawF", "DrawInv", "ClrTable",
                            "StorePic", "RecallPic", "StoreGDB", "RecallGDB", "BackgroundOn", "BackgroundOff",
@@ -96,6 +99,31 @@ enum Tokenizer {
         for c in commands { s.append((c, .command(c))) }
         return s.sorted { $0.0.count > $1.0.count }.map { (Array($0.0), $0.1) }
     }()
+
+    // MARK: - Display tokens (cursor movement, DEL, overwrite)
+
+    /// Symbols the entry line treats as one unit. Ones that start with a digit ("10^(") are left
+    /// out so digits typed one at a time never fuse into a token.
+    private static let displaySymbols: [[Character]] = symbols.map { $0.0 }.filter { !($0.first?.isNumber ?? false) }
+
+    /// Length of the display token that starts at `i` (1 for a plain character).
+    static func displayTokenLength(in chars: [Character], at i: Int) -> Int {
+        for sym in displaySymbols where sym.count <= chars.count - i {
+            if chars[i..<(i + sym.count)].elementsEqual(sym) { return sym.count }
+        }
+        return 1
+    }
+
+    /// Range of the display token containing `pos`; an empty range at the end when `pos` is past the text.
+    static func displayTokenRange(in chars: [Character], containing pos: Int) -> Range<Int> {
+        var i = 0
+        while i < chars.count {
+            let n = displayTokenLength(in: chars, at: i)
+            if pos < i + n { return i..<(i + n) }
+            i += n
+        }
+        return chars.count..<chars.count
+    }
 
     static func tokenize(_ text: String) throws -> [Token] {
         let chars = Array(text)
@@ -184,7 +212,7 @@ enum Tokenizer {
             case ">": out.append(.op(.gt))
             case "<": out.append(.op(.lt))
             case "_": out.append(.op(.mixed))
-            case "²", "³", "!", "°", "ʳ", "'", "ᵀ": out.append(.postfix(String(c)))
+            case "²", "³", "!", "°", "ʳ", "'", "ᵀ", "%": out.append(.postfix(String(c)))
             case "(": out.append(.lparen)
             case ")": out.append(.rparen)
             case "{": out.append(.lbrace)
@@ -194,10 +222,17 @@ enum Tokenizer {
             case ",": out.append(.comma)
             case "→": out.append(.store)
             case "⁻": out.append(.negate)
+            case MathPrint.fracOpen: out.append(.fracOpen)
+            case MathPrint.fracSep: out.append(.fracSep)
+            case MathPrint.fracClose: out.append(.fracClose)
+            case MathPrint.mixedOpen: out.append(.mixedOpen)
+            case MathPrint.stackOpen: out.append(.function("piecewise")); out.append(.lparen)
+            case MathPrint.rowSep, MathPrint.colSep: out.append(.comma)
+            case MathPrint.stackClose: out.append(.rparen)
             case "π": out.append(.pi)
             case "e": out.append(.e)
             case "θ": out.append(.variable("θ"))
-            case "i": throw CalcError.dataType
+            case "i": out.append(.imaginary)
             default:
                 if c.isASCII, c.isUppercase, c.isLetter {
                     out.append(.variable(String(c)))

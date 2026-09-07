@@ -14,6 +14,9 @@ struct ContentView: View {
                 )
                 .ignoresSafeArea()
 
+                HardwareKeyboardView { state.pressHardware($0) }
+                    .frame(width: 0, height: 0)
+
                 CalculatorBodyView()
                     .frame(width: Layout.bodyW, height: Layout.bodyH)
                     .scaleEffect(scale)

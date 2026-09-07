@@ -125,7 +125,7 @@ final class EngineTests: XCTestCase {
 
     func testErrors() {
         XCTAssertThrowsError(try eval("1÷0")) { XCTAssertEqual($0 as? CalcError, .divideByZero) }
-        XCTAssertThrowsError(try eval("√(⁻1)")) { XCTAssertEqual($0 as? CalcError, .domain) }
+        XCTAssertThrowsError(try eval("√(⁻1)")) { XCTAssertEqual($0 as? CalcError, .nonrealAns) }   // REAL mode, like the CE
         XCTAssertThrowsError(try eval("sin⁻¹(2)")) { XCTAssertEqual($0 as? CalcError, .domain) }
         XCTAssertThrowsError(try eval("2+")) { XCTAssertEqual($0 as? CalcError, .syntax) }
         XCTAssertThrowsError(try eval("2⁻3")) { XCTAssertEqual($0 as? CalcError, .syntax) }

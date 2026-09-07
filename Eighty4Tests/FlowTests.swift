@@ -22,7 +22,7 @@ final class FlowTests: XCTestCase {
         XCTAssertEqual(String(s.entry), "3+4")
         keys([.plus, .one, .second, .enter])                  // 2nd+enter with text evaluates
         XCTAssertEqual(s.history.last?.text, "8")
-        keys([.up])
+        keys([.up, .up, .enter])                              // ▲ selects "8", ▲ selects "3+4+1", ENTER pastes it
         XCTAssertEqual(String(s.entry), "3+4+1")
         keys([.clear, .clear])
         XCTAssertTrue(s.history.isEmpty)
@@ -43,7 +43,7 @@ final class FlowTests: XCTestCase {
     }
 
     func testModeEditorChangesAngle() {
-        keys([.mode, .down, .down, .right, .enter, .second, .mode])   // RADIAN → DEGREE
+        keys([.mode, .down, .down, .down, .right, .enter, .second, .mode])   // RADIAN → DEGREE
         XCTAssertTrue(s.store.degrees)
         XCTAssertTrue(s.store.statusText.contains("DEGREE"))
         keys([.sin, .three, .zero, .rparen, .enter])

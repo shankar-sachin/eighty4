@@ -58,13 +58,18 @@ enum Menus {
         let subs = Tokenizer.subscripts
         switch id {
         case .math:
+            // MATHPRINT mode inserts the stacked templates; CLASSIC inserts the flat tokens.
+            let mp = store.mathPrint
+            let piecewise = mp ? sub("piecewise(", .piecewise) : ins("piecewise(")
             return MenuDef(tabs: [
-                MenuTab(title: "MATH", items: [ins("▶Frac"), ins("▶Dec"), ins("³"), ins("³√("), ins("ˣ√"), ins("fMin("), ins("fMax("), ins("nDeriv("), ins("fnInt("), ins("Σ("), ins("logBASE("), cmd("Solver…", .solver)]),
-                MenuTab(title: "NUM", items: [ins("abs("), ins("round("), ins("iPart("), ins("fPart("), ins("int("), ins("min("), ins("max("), ins("lcm("), ins("gcd("), ins("remainder(")]),
+                MenuTab(title: "MATH", items: [ins("▶Frac"), ins("▶Dec"), ins("³"), ins("³√("), ins("ˣ√"), ins("fMin("), ins("fMax("), ins("nDeriv("), ins("fnInt("), ins("Σ("), ins("logBASE("), piecewise, cmd("Solver…", .solver)]),
+                MenuTab(title: "NUM", items: [ins("abs("), ins("round("), ins("iPart("), ins("fPart("), ins("int("), ins("min("), ins("max("), ins("lcm("), ins("gcd("), ins("remainder("), ins("toString("), ins("eval(")]),
                 MenuTab(title: "CMPLX", items: [ins("conj("), ins("real("), ins("imag("), ins("angle("), ins("abs("), ins("▶Rect"), ins("▶Polar")]),
                 MenuTab(title: "PROB", items: [ins("rand"), ins("nPr", " nPr "), ins("nCr", " nCr "), ins("!"), ins("randInt("), ins("randNorm("), ins("randBin("), ins("randIntNoRep(")]),
-                MenuTab(title: "FRAC", items: [ins("n/d", "/"), ins("Un/d", "_"), ins("▶n/d◀▶Un/d"), ins("▶F◀▶D")]),
+                MenuTab(title: "FRAC", items: [ins("n/d", mp ? MathPrint.fractionTemplate : "/"), ins("Un/d", mp ? MathPrint.mixedTemplate : "_"), ins("▶n/d◀▶Un/d"), ins("▶F◀▶D")]),
             ])
+        case .piecewise:
+            return MenuDef(tabs: [MenuTab(title: "PIECEWISE", items: (1...5).map { ins("\($0) piece" + ($0 == 1 ? "" : "s"), MathPrint.piecewise(rows: $0)) })])
         case .test:
             return MenuDef(tabs: [
                 MenuTab(title: "TEST", items: [ins("="), ins("≠"), ins(">"), ins("≥"), ins("<"), ins("≤")]),
@@ -74,7 +79,7 @@ enum Menus {
             return MenuDef(tabs: [MenuTab(title: "ANGLE", items: [ins("°"), ins("'"), ins("ʳ"), ins("▶DMS"), ins("R▶Pr("), ins("R▶Pθ("), ins("P▶Rx("), ins("P▶Ry(")])])
         case .distr:
             return MenuDef(tabs: [
-                MenuTab(title: "DISTR", items: [ins("normalpdf("), ins("normalcdf("), ins("invNorm("), ins("invT("), ins("tpdf("), ins("tcdf("), ins("χ²pdf("), ins("χ²cdf("), ins("Fpdf("), ins("Fcdf("), ins("binompdf("), ins("binomcdf("), ins("poissonpdf("), ins("poissoncdf("), ins("geometpdf("), ins("geometcdf(")]),
+                MenuTab(title: "DISTR", items: [ins("normalpdf("), ins("normalcdf("), ins("invNorm("), ins("invT("), ins("tpdf("), ins("tcdf("), ins("χ²pdf("), ins("χ²cdf("), ins("Fpdf("), ins("Fcdf("), ins("binompdf("), ins("binomcdf("), ins("invBinom("), ins("poissonpdf("), ins("poissoncdf("), ins("geometpdf("), ins("geometcdf(")]),
                 MenuTab(title: "DRAW", items: [ins("ShadeNorm("), ins("Shade_t("), ins("Shadeχ²("), ins("ShadeF(")]),
             ])
         case .list:
@@ -150,7 +155,7 @@ enum Menus {
             let names = store.programs.keys.sorted()
             return MenuDef(tabs: [
                 MenuTab(title: "EXEC", items: builtInPrograms.map { app($0.0, $0.1) } + names.map { cmd($0, .runProgram($0)) }),
-                MenuTab(title: "EDIT", items: names.map { cmd($0, .editProgram($0)) }),
+                MenuTab(title: "EDIT", items: names.map { cmd(store.lockedPrograms.contains($0) ? $0 + " [LOCKED]" : $0, .editProgram($0)) }),
                 MenuTab(title: "NEW", items: [cmd("Create New", .newProgram)]),
             ])
         case .prgmCtl:
@@ -240,12 +245,13 @@ enum MemoryModel {
     static func items(_ store: VariableStore) -> [Item] {
         var out: [Item] = []
         for (k, v) in store.reals.sorted(by: { $0.key < $1.key }) { _ = v; out.append(Item(name: k, category: "Real", bytes: 15)) }
-        for k in ["L1", "L2", "L3", "L4", "L5", "L6"] where !(store.lists[k] ?? []).isEmpty {
-            out.append(Item(name: k, category: "List", bytes: 12 + 9 * (store.lists[k]?.count ?? 0)))
+        for k in store.complexes.keys.sorted() { out.append(Item(name: k, category: "Complex", bytes: 24)) }
+        for k in ["L1", "L2", "L3", "L4", "L5", "L6"] where !(store.lists[k] ?? []).isEmpty || store.complexLists[k] != nil {
+            out.append(Item(name: k, category: "List", bytes: 12 + 9 * (store.lists[k]?.count ?? 0) + 18 * (store.complexLists[k]?.count ?? 0)))
         }
         for (k, m) in store.matrices.sorted(by: { $0.key < $1.key }) {
             let (r, c) = Matrix.dims(m)
-            out.append(Item(name: "[\(k)]", category: "Matrix", bytes: 12 + 9 * r * c))
+            out.append(Item(name: "[\(k)]", category: store.complexMatrices[k] != nil ? "Complex" : "Matrix", bytes: 12 + (store.complexMatrices[k] != nil ? 18 : 9) * r * c))
         }
         for n in [1, 2, 3, 4, 5, 6, 7, 8, 9, 0] where !(store.yFuncs[n] ?? "").isEmpty {
             out.append(Item(name: "Y\(n)", category: "Y-Vars", bytes: 9 + (store.yFuncs[n]?.count ?? 0)))

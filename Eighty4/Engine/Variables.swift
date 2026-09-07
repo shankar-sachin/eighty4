@@ -52,8 +52,16 @@ final class VariableStore {
     static var persistenceEnabled = true
 
     var reals: [String: Double] = [:]
+    /// Complex-valued A–Z/θ as [re, im]; a name is in `reals` or here, never both.
+    var complexes: [String: [Double]] = [:]
     var lists: [String: [Double]] = ["L1": [], "L2": [], "L3": [], "L4": [], "L5": [], "L6": []]
+    /// Complex-valued lists as [[re, im]]; takes precedence over `lists[name]` while present.
+    var complexLists: [String: [[Double]]] = [:]
+    /// Programs that run but never open in EDIT (chosen when the program is created).
+    var lockedPrograms: Set<String> = []
     var matrices: [String: [[Double]]] = [:]
+    /// Complex-valued matrices as rows of [re, im]; takes precedence over `matrices[name]` (which keeps the real parts) while present.
+    var complexMatrices: [String: [[[Double]]]] = [:]
     var yFuncs: [Int: String] = [:]
     var yEnabled: [Int: Bool] = [:]
     /// Parametric (X1T/Y1T…), polar (r1…) and sequence (u v w, u(nMin)…) definitions.
@@ -88,6 +96,8 @@ final class VariableStore {
     @ObservationIgnored var overrides: [String: Double] = [:]
     @ObservationIgnored var seqCache: [String: [Int: Double]] = [:]
     @ObservationIgnored var seqCacheKey = ""
+    /// Display form forced by ▶Rect (1) / ▶Polar (2) for the result being formatted; cleared per evaluation.
+    @ObservationIgnored var pendingComplexForm: Int? = nil
 
     var xOverride: Double? {
         get { overrides["X"] }
@@ -121,6 +131,10 @@ final class VariableStore {
         return f == 0 ? nil : f - 1
     }
     var mixedFractions: Bool { options["fraction", default: 0] == 1 }
+    /// MODE MATHPRINT (stacked fractions / templates on the home screen) vs CLASSIC.
+    var mathPrint: Bool { options["mathprint", default: 0] == 0 }
+    /// MODE ANSWERS: 0 AUTO, 1 DEC, 2 FRAC.
+    var answersMode: Int { options["answers", default: 0] }
     var graphType: GraphType { GraphType(rawValue: options["graph", default: 0]) ?? .function }
     var thickLines: Bool { options["line", default: 0] == 0 || options["line", default: 0] == 1 }
     var dottedLines: Bool { options["line", default: 0] == 1 || options["line", default: 0] == 3 }
@@ -165,7 +179,44 @@ final class VariableStore {
         let floatText = fixedDigits.map { String($0) } ?? "FLOAT"
         let complexText = ["REAL", "a+bi", "re^θi"][min(2, options["complex", default: 0])]
         let angleText = degrees ? "DEGREE" : "RADIAN"
-        return "\(notationText) \(floatText) AUTO \(complexText) \(angleText) MP"
+        let answersText = ["AUTO", "DEC", "FRAC"][min(2, answersMode)]
+        return "\(notationText) \(floatText) \(answersText) \(complexText) \(angleText)" + (mathPrint ? " MP" : "")
+    }
+
+    // MARK: - Matrices (real or complex)
+
+    /// The matrix as complex rows, or nil if [name] is undefined.
+    func matrixRows(_ name: String) -> [[Cx]]? {
+        if let c = complexMatrices[name] { return c.map { $0.map { Cx(re: $0.first ?? 0, im: $0.count > 1 ? $0[1] : 0) } } }
+        return matrices[name]?.map { $0.map { Cx(re: $0, im: 0) } }
+    }
+
+    func matrixValue(_ name: String) -> Value? {
+        matrixRows(name).map { Value.fromComplexRows($0) }
+    }
+
+    /// Stores a matrix; a purely real one drops the complex copy.
+    func setMatrix(_ name: String, _ rows: [[Cx]]) {
+        matrices[name] = rows.map { $0.map(\.re) }
+        if rows.contains(where: { $0.contains { $0.im != 0 } }) { complexMatrices[name] = rows.map { $0.map { [$0.re, $0.im] } } }
+        else { complexMatrices.removeValue(forKey: name) }
+    }
+
+    func setMatrix(_ name: String, _ v: Value) throws {
+        guard let rows = v.asComplexRows else { throw CalcError.dataType }
+        setMatrix(name, rows)
+    }
+
+    /// Applies MODE ANSWERS to a result: AUTO keeps fractions when the entry used a fraction template,
+    /// DEC always shows decimals, FRAC shows a fraction whenever one exists.
+    func answerForm(_ v: Value, entryUsedFraction: Bool) -> Value {
+        switch answersMode {
+        case 1: if case .fraction = v { return .num(v.asDouble ?? 0) }; return v
+        case 2: if case .num(let d) = v, let f = Value.fraction(from: d) { return f }; return v
+        default:
+            if entryUsedFraction, case .num(let d) = v, let f = Value.fraction(from: d) { return f }
+            return v
+        }
     }
 
     func lookupReal(_ name: String) -> Double {
@@ -213,6 +264,10 @@ final class VariableStore {
 
     func reset() {
         reals = [:]
+        complexes = [:]
+        complexLists = [:]
+        complexMatrices = [:]
+        lockedPrograms = []
         lists = ["L1": [], "L2": [], "L3": [], "L4": [], "L5": [], "L6": []]
         matrices = [:]
         yFuncs = [:]
@@ -250,16 +305,16 @@ final class VariableStore {
 
     /// Deletes a variable by its MEM display name ("A", "L1", "[A]", "Y1", "prgmNAME", "Pic1", "GDB1", "Str1", "group NAME").
     func deleteVariable(_ name: String) {
-        if name.hasPrefix("prgm") { programs.removeValue(forKey: String(name.dropFirst(4))) }
-        else if name.hasPrefix("[") { matrices.removeValue(forKey: String(name.dropFirst().dropLast())) }
-        else if name.hasPrefix("L"), let n = Int(name.dropFirst()), (1...6).contains(n) { lists[name] = [] }
+        if name.hasPrefix("prgm") { programs.removeValue(forKey: String(name.dropFirst(4))); lockedPrograms.remove(String(name.dropFirst(4))) }
+        else if name.hasPrefix("[") { matrices.removeValue(forKey: String(name.dropFirst().dropLast())); complexMatrices.removeValue(forKey: String(name.dropFirst().dropLast())) }
+        else if name.hasPrefix("L"), let n = Int(name.dropFirst()), (1...6).contains(n) { lists[name] = []; complexLists.removeValue(forKey: name) }
         else if let n = Self.yIndex(name) { yFuncs.removeValue(forKey: n) }
         else if name.hasPrefix("Pic"), let n = Int(name.dropFirst(3)) { pics.removeValue(forKey: n) }
         else if name.hasPrefix("GDB"), let n = Int(name.dropFirst(3)) { gdbs.removeValue(forKey: n) }
         else if name.hasPrefix("Str"), let n = Int(name.dropFirst(3)) { strings.removeValue(forKey: n) }
         else if name.hasPrefix("group ") { groups.removeValue(forKey: String(name.dropFirst(6))) }
         else if funcs[name] != nil { funcs.removeValue(forKey: name) }
-        else { reals.removeValue(forKey: name) }
+        else { reals.removeValue(forKey: name); complexes.removeValue(forKey: name) }
         archived.remove(name)
     }
 
@@ -286,6 +341,10 @@ final class VariableStore {
         var groups: [String: VariableGroup]?
         var sheet: [String: String]?
         var solverEqn: String?
+        var complexes: [String: [Double]]?
+        var complexLists: [String: [[Double]]]?
+        var lockedPrograms: [String]?
+        var complexMatrices: [String: [[[Double]]]]?
     }
 
     private static let key = "eighty4.store"
@@ -301,7 +360,9 @@ final class VariableStore {
             strings: Dictionary(uniqueKeysWithValues: strings.map { (String($0.key), $0.value) }),
             pics: Dictionary(uniqueKeysWithValues: pics.map { (String($0.key), $0.value) }),
             gdbs: Dictionary(uniqueKeysWithValues: gdbs.map { (String($0.key), $0.value) }),
-            programs: programs, archived: Array(archived), groups: groups, sheet: sheet, solverEqn: solverEqn
+            programs: programs, archived: Array(archived), groups: groups, sheet: sheet, solverEqn: solverEqn,
+            complexes: complexes, complexLists: complexLists, lockedPrograms: Array(lockedPrograms),
+            complexMatrices: complexMatrices
         )
         if let data = try? JSONEncoder().encode(snap) {
             UserDefaults.standard.set(data, forKey: Self.key)
@@ -335,6 +396,10 @@ final class VariableStore {
         groups = snap.groups ?? [:]
         sheet = snap.sheet ?? [:]
         solverEqn = snap.solverEqn ?? ""
+        complexes = snap.complexes ?? [:]
+        complexLists = snap.complexLists ?? [:]
+        lockedPrograms = Set(snap.lockedPrograms ?? [])
+        complexMatrices = snap.complexMatrices ?? [:]
     }
 
     static func wipe() {

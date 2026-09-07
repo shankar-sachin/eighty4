@@ -27,7 +27,7 @@ extension CalculatorState {
         if mod != .alphaLock { modifier = .none }
 
         if case .error = screen {
-            if key == .two, let (name, line) = errorGoto, store.programs[name] != nil {
+            if key == .two, let (name, line) = errorGoto, store.programs[name] != nil, !store.lockedPrograms.contains(name) {
                 errorGoto = nil
                 openProgramEditor(name, line: max(0, line))
                 return
@@ -380,6 +380,16 @@ extension CalculatorState {
             }
             return
         }
+        if historySelection != nil {
+            // ▲/▼ walk the scroll-back, ENTER pastes, DEL/CLEAR remove the entry+answer pair; anything else drops the highlight first.
+            switch action {
+            case .up: selectHistory(step: -1); return
+            case .down: selectHistory(step: 1); return
+            case .enter: pasteHistorySelection(); return
+            case .del, .clear: deleteHistorySelection(); return
+            default: clearHistorySelection()
+            }
+        }
         if routeNavigation(action) { return }
         switch action {
         case .insert(let s): historyIndex = nil; insert(s)
@@ -388,14 +398,15 @@ extension CalculatorState {
             if entry.isEmpty, let last = store.entries.last { entry = Array(last); cursor = entry.count }
             else { evaluate() }
         case .clear:
-            if entry.isEmpty { history = [] } else { entry = []; cursor = 0 }
+            // Clearing the screen also forgets Ans, so a fresh screen really starts from 0.
+            if entry.isEmpty { history = []; store.ans = .num(0) } else { entry = []; cursor = 0 }
             historyIndex = nil
         case .del: deleteAtCursor()
         case .ins: insertMode.toggle()
-        case .left: cursor = max(0, cursor - 1)
-        case .right: cursor = min(entry.count, cursor + 1)
-        case .up: recallEntry(step: -1)
-        case .down: recallEntry(step: 1)
+        case .left: moveCursorLeft()
+        case .right: moveCursorRight()
+        case .up: selectHistory(step: -1)
+        case .down: break
         case .rcl: rclPending = true
         default: break
         }
@@ -429,8 +440,8 @@ extension CalculatorState {
             case .insert(let s): insert(s)
             case .del: deleteAtCursor()
             case .ins: insertMode.toggle()
-            case .left: cursor = max(0, cursor - 1)
-            case .right: cursor = min(entry.count, cursor + 1)
+            case .left: moveCursorLeft()
+            case .right: moveCursorRight()
             case .clear: entry = []; cursor = 0
             case .enter, .entry:
                 let text = String(entry)
@@ -512,7 +523,9 @@ extension CalculatorState {
         switch item.action {
         case .insert(let s):
             closeMenu()
-            if screen == .home || screen == .yEquals || screen == .solver || isProgramEditor { insert(s) }
+            // Stacked templates only render on the home screen; other editors get the flat form.
+            if screen == .home { insert(s) }
+            else if screen == .yEquals || screen == .solver || isProgramEditor { insert(MathPrint.classicInsert(s)) }
             else { screen = .home; insert(s) }
         case .submenu(let id):
             menuTab = 0; menuRow = 0
@@ -606,7 +619,8 @@ extension CalculatorState {
             evaluate()
         case .editProgram(let name):
             leaveForCommand()
-            openProgramEditor(name)
+            if store.lockedPrograms.contains(name) { screen = .confirm(.programUnlock(name)); returnScreen = .home }
+            else { openProgramEditor(name) }
         case .newProgram:
             leaveForCommand()
             nameBuffer = []
@@ -836,8 +850,8 @@ extension CalculatorState {
                 // Cursor on the "=" toggles the function on/off, like the real Y= screen.
                 let key = yKeys[min(yRow, last)]
                 if Self.hasToggle(key) { store.setFuncEnabled(key, !store.funcEnabled(key)) }
-            } else { cursor = max(0, cursor - 1) }
-        case .right: cursor = min(entry.count, cursor + 1)
+            } else { moveCursorLeft() }
+        case .right: moveCursorRight()
         default: break
         }
     }
@@ -888,7 +902,7 @@ extension CalculatorState {
     // MARK: - Matrix editor
 
     private func handleMatrixEditor(_ key: KeyID, _ mod: Modifier) {
-        guard var m = store.matrices[matName] else { screen = .home; return }
+        guard let m = store.matrices[matName] else { screen = .home; return }
         let (rows, cols) = Matrix.dims(m)
         switch key {
         case .up:
@@ -922,29 +936,30 @@ extension CalculatorState {
                 return
             }
             commitMatrixCell()
-            m = store.matrices[matName] ?? m
             _ = routeNavigation(action)
         }
     }
 
+    /// Cells accept complex values too ([A] becomes a complex matrix once any cell has an imaginary part).
     func commitMatrixCell() {
-        guard editorTyping, var m = store.matrices[matName] else { editorTyping = false; return }
+        guard editorTyping, var m = store.matrixRows(matName) else { editorTyping = false; return }
         let text = String(editorBuffer)
         editorTyping = false
         editorBuffer = []
         guard !text.isEmpty else { return }
         do {
-            let v = try Evaluator.number(text, ctx: EvalContext(store: store))
+            guard let z = try Evaluator.evaluate(text, ctx: EvalContext(store: store)).asComplex else { throw CalcError.dataType }
             if matRow == -1 {
-                let n = Int(v)
+                guard z.1 == 0 else { throw CalcError.dataType }
+                let n = Int(z.0)
                 guard n >= 1, n <= 20 else { throw CalcError.invalidDim }
                 let (r, c) = Matrix.dims(m)
                 let newR = matCol == 0 ? n : r, newC = matCol == 1 ? n : c
-                m = (0..<newR).map { i in (0..<newC).map { j in (i < r && j < c) ? m[i][j] : 0 } }
+                m = (0..<newR).map { i in (0..<newC).map { j in (i < r && j < c) ? m[i][j] : .zero } }
             } else {
-                m[matRow][matCol] = v
+                m[matRow][matCol] = Cx(re: z.0, im: z.1)
             }
-            store.matrices[matName] = m
+            store.setMatrix(matName, m)
         } catch let e as CalcError { fail(e) } catch { fail(.syntax) }
     }
 
@@ -1165,8 +1180,8 @@ extension CalculatorState {
             case .insert(let s): insert(s)
             case .del: deleteAtCursor()
             case .ins: insertMode.toggle()
-            case .left: cursor = max(0, cursor - 1)
-            case .right: cursor = min(entry.count, cursor + 1)
+            case .left: moveCursorLeft()
+            case .right: moveCursorRight()
             case .clear:
                 if entry.isEmpty { leaveSolver() } else { entry = []; cursor = 0 }
             case .enter, .down:
@@ -1266,6 +1281,16 @@ extension CalculatorState {
         guard yes || no else { return }
         let back = returnScreen
         returnScreen = .home
+        switch kind {
+        case .programLock(let name):
+            if yes { store.lockedPrograms.insert(name) }
+            openProgramEditor(name)           // a brand-new program still opens so it can be written
+            return
+        case .programUnlock(let name):
+            if yes { store.lockedPrograms.remove(name); openProgramEditor(name) } else { screen = .home }
+            return
+        default: break
+        }
         if no { screen = (kind == .garbageCollect || isDeleteConfirm(kind)) ? back : .home; return }
         switch kind {
         case .resetRAM:
@@ -1291,6 +1316,8 @@ extension CalculatorState {
             store.deleteVariable(name)
             screen = back
             if case .varList(let m) = back { varListRow = min(varListRow, max(0, varListItems(m).count - 1)) }
+        case .programLock, .programUnlock:
+            break
         }
     }
 
@@ -1315,7 +1342,9 @@ extension CalculatorState {
             modifier = .none
             if screen == .programName {
                 if store.programs[name] == nil { store.programs[name] = [""] }
-                openProgramEditor(name)
+                if store.lockedPrograms.contains(name) { screen = .confirm(.programUnlock(name)) }
+                else { screen = .confirm(.programLock(name)) }
+                returnScreen = .home
             } else {
                 store.groups[name] = store.makeGroup()
                 screen = .message(["", "", "  Group \(name) created", "  from all variables.", "", "", "", "", "", "  Press CLEAR to continue"])
@@ -1344,8 +1373,8 @@ extension CalculatorState {
                 store.programs[programName] = programLines
             } else { deleteAtCursor() }
         case .ins: insertMode.toggle()
-        case .left: cursor = max(0, cursor - 1)
-        case .right: cursor = min(entry.count, cursor + 1)
+        case .left: moveCursorLeft()
+        case .right: moveCursorRight()
         case .up:
             commitProgramLine()
             programRow = max(0, programRow - 1)
