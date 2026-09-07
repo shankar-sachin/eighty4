@@ -1,0 +1,179 @@
+{
+  "" : {
+    "diagnostics" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Eighty4-primary.dia",
+    "emit-module-dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Eighty4-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Eighty4-primary-emit-module.dia",
+    "pch" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Eighty4-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Eighty4-primary.swiftdeps"
+  },
+  "/Users/sachi/Master_Coding/ti-84/Eighty4/Eighty4App.swift" : {
+    "const-values" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Eighty4App.swiftconstvalues",
+    "dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Eighty4App.d",
+    "diagnostics" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Eighty4App.dia",
+    "index-unit-output-path" : "/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Eighty4App.o",
+    "llvm-bc" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Eighty4App.bc",
+    "object" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Eighty4App.o",
+    "swift-dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Eighty4App.swiftdeps",
+    "swiftmodule" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Eighty4App~partial.swiftmodule"
+  },
+  "/Users/sachi/Master_Coding/ti-84/Eighty4/Engine/CalcError.swift" : {
+    "const-values" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalcError.swiftconstvalues",
+    "dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalcError.d",
+    "diagnostics" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalcError.dia",
+    "index-unit-output-path" : "/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalcError.o",
+    "llvm-bc" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalcError.bc",
+    "object" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalcError.o",
+    "swift-dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalcError.swiftdeps",
+    "swiftmodule" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalcError~partial.swiftmodule"
+  },
+  "/Users/sachi/Master_Coding/ti-84/Eighty4/Engine/Formatter.swift" : {
+    "const-values" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Formatter.swiftconstvalues",
+    "dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Formatter.d",
+    "diagnostics" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Formatter.dia",
+    "index-unit-output-path" : "/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Formatter.o",
+    "llvm-bc" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Formatter.bc",
+    "object" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Formatter.o",
+    "swift-dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Formatter.swiftdeps",
+    "swiftmodule" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Formatter~partial.swiftmodule"
+  },
+  "/Users/sachi/Master_Coding/ti-84/Eighty4/Engine/Parser.swift" : {
+    "const-values" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Parser.swiftconstvalues",
+    "dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Parser.d",
+    "diagnostics" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Parser.dia",
+    "index-unit-output-path" : "/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Parser.o",
+    "llvm-bc" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Parser.bc",
+    "object" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Parser.o",
+    "swift-dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Parser.swiftdeps",
+    "swiftmodule" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Parser~partial.swiftmodule"
+  },
+  "/Users/sachi/Master_Coding/ti-84/Eighty4/Engine/Tokenizer.swift" : {
+    "const-values" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Tokenizer.swiftconstvalues",
+    "dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Tokenizer.d",
+    "diagnostics" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Tokenizer.dia",
+    "index-unit-output-path" : "/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Tokenizer.o",
+    "llvm-bc" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Tokenizer.bc",
+    "object" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Tokenizer.o",
+    "swift-dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Tokenizer.swiftdeps",
+    "swiftmodule" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Tokenizer~partial.swiftmodule"
+  },
+  "/Users/sachi/Master_Coding/ti-84/Eighty4/Models/KeySpec.swift" : {
+    "const-values" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeySpec.swiftconstvalues",
+    "dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeySpec.d",
+    "diagnostics" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeySpec.dia",
+    "index-unit-output-path" : "/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeySpec.o",
+    "llvm-bc" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeySpec.bc",
+    "object" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeySpec.o",
+    "swift-dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeySpec.swiftdeps",
+    "swiftmodule" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeySpec~partial.swiftmodule"
+  },
+  "/Users/sachi/Master_Coding/ti-84/Eighty4/Models/Keymap.swift" : {
+    "const-values" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Keymap.swiftconstvalues",
+    "dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Keymap.d",
+    "diagnostics" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Keymap.dia",
+    "index-unit-output-path" : "/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Keymap.o",
+    "llvm-bc" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Keymap.bc",
+    "object" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Keymap.o",
+    "swift-dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Keymap.swiftdeps",
+    "swiftmodule" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Keymap~partial.swiftmodule"
+  },
+  "/Users/sachi/Master_Coding/ti-84/Eighty4/Models/Shell.swift" : {
+    "const-values" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Shell.swiftconstvalues",
+    "dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Shell.d",
+    "diagnostics" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Shell.dia",
+    "index-unit-output-path" : "/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Shell.o",
+    "llvm-bc" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Shell.bc",
+    "object" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Shell.o",
+    "swift-dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Shell.swiftdeps",
+    "swiftmodule" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Shell~partial.swiftmodule"
+  },
+  "/Users/sachi/Master_Coding/ti-84/Eighty4/State/CalculatorState.swift" : {
+    "const-values" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalculatorState.swiftconstvalues",
+    "dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalculatorState.d",
+    "diagnostics" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalculatorState.dia",
+    "index-unit-output-path" : "/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalculatorState.o",
+    "llvm-bc" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalculatorState.bc",
+    "object" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalculatorState.o",
+    "swift-dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalculatorState.swiftdeps",
+    "swiftmodule" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalculatorState~partial.swiftmodule"
+  },
+  "/Users/sachi/Master_Coding/ti-84/Eighty4/State/KeyHandler.swift" : {
+    "const-values" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeyHandler.swiftconstvalues",
+    "dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeyHandler.d",
+    "diagnostics" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeyHandler.dia",
+    "index-unit-output-path" : "/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeyHandler.o",
+    "llvm-bc" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeyHandler.bc",
+    "object" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeyHandler.o",
+    "swift-dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeyHandler.swiftdeps",
+    "swiftmodule" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeyHandler~partial.swiftmodule"
+  },
+  "/Users/sachi/Master_Coding/ti-84/Eighty4/Views/CalculatorBodyView.swift" : {
+    "const-values" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalculatorBodyView.swiftconstvalues",
+    "dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalculatorBodyView.d",
+    "diagnostics" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalculatorBodyView.dia",
+    "index-unit-output-path" : "/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalculatorBodyView.o",
+    "llvm-bc" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalculatorBodyView.bc",
+    "object" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalculatorBodyView.o",
+    "swift-dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalculatorBodyView.swiftdeps",
+    "swiftmodule" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/CalculatorBodyView~partial.swiftmodule"
+  },
+  "/Users/sachi/Master_Coding/ti-84/Eighty4/Views/ContentView.swift" : {
+    "const-values" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/ContentView.swiftconstvalues",
+    "dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/ContentView.d",
+    "diagnostics" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/ContentView.dia",
+    "index-unit-output-path" : "/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/ContentView.o",
+    "llvm-bc" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/ContentView.bc",
+    "object" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/ContentView.o",
+    "swift-dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/ContentView.swiftdeps",
+    "swiftmodule" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/ContentView~partial.swiftmodule"
+  },
+  "/Users/sachi/Master_Coding/ti-84/Eighty4/Views/KeypadView.swift" : {
+    "const-values" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeypadView.swiftconstvalues",
+    "dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeypadView.d",
+    "diagnostics" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeypadView.dia",
+    "index-unit-output-path" : "/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeypadView.o",
+    "llvm-bc" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeypadView.bc",
+    "object" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeypadView.o",
+    "swift-dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeypadView.swiftdeps",
+    "swiftmodule" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/KeypadView~partial.swiftmodule"
+  },
+  "/Users/sachi/Master_Coding/ti-84/Eighty4/Views/LCDView.swift" : {
+    "const-values" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/LCDView.swiftconstvalues",
+    "dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/LCDView.d",
+    "diagnostics" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/LCDView.dia",
+    "index-unit-output-path" : "/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/LCDView.o",
+    "llvm-bc" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/LCDView.bc",
+    "object" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/LCDView.o",
+    "swift-dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/LCDView.swiftdeps",
+    "swiftmodule" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/LCDView~partial.swiftmodule"
+  },
+  "/Users/sachi/Master_Coding/ti-84/Eighty4/Views/Layout.swift" : {
+    "const-values" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Layout.swiftconstvalues",
+    "dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Layout.d",
+    "diagnostics" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Layout.dia",
+    "index-unit-output-path" : "/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Layout.o",
+    "llvm-bc" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Layout.bc",
+    "object" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Layout.o",
+    "swift-dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Layout.swiftdeps",
+    "swiftmodule" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/Layout~partial.swiftmodule"
+  },
+  "/Users/sachi/Master_Coding/ti-84/Eighty4/Views/ShellPickerView.swift" : {
+    "const-values" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/ShellPickerView.swiftconstvalues",
+    "dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/ShellPickerView.d",
+    "diagnostics" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/ShellPickerView.dia",
+    "index-unit-output-path" : "/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/ShellPickerView.o",
+    "llvm-bc" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/ShellPickerView.bc",
+    "object" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/ShellPickerView.o",
+    "swift-dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/ShellPickerView.swiftdeps",
+    "swiftmodule" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/ShellPickerView~partial.swiftmodule"
+  },
+  "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/GeneratedAssetSymbols.dia",
+    "index-unit-output-path" : "/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftdeps",
+    "swiftmodule" : "/Users/sachi/Master_Coding/ti-84/build/Build/Intermediates.noindex/Eighty4.build/Debug-iphonesimulator/Eighty4.build/Objects-normal/arm64/GeneratedAssetSymbols~partial.swiftmodule"
+  }
+}
