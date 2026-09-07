@@ -1,78 +1,105 @@
 import SwiftUI
 
-/// The 320×240 TI-84 Plus CE display, rendered at native size and scaled by the parent.
-struct LCDView: View {
-    @Environment(CalculatorState.self) private var state
+/// Native LCD geometry (320×240) and the character-cell grid used by every text screen.
+enum LCD {
+    static let cols = 26
+    static let rows = 10
+    static let cellW: CGFloat = 12
+    static let lineH: CGFloat = 21
+    static let statusH: CGFloat = 22
+    static let leftPad: CGFloat = 4
+    static let width: CGFloat = 320
+    static let height: CGFloat = 240
+    static var bodyHeight: CGFloat { height - statusH }
+    static let font = Font.system(size: 17, weight: .regular, design: .monospaced)
+    static let smallFont = Font.system(size: 12, weight: .regular, design: .monospaced)
+}
 
-    private let cellW: CGFloat = 12
-    private let lineH: CGFloat = 21
-    private let statusH: CGFloat = 22
-    private let leftPad: CGFloat = 4
-    private let fontSize: CGFloat = 17
-
-    private var textFont: Font { .system(size: fontSize, weight: .regular, design: .monospaced) }
+/// A run of character cells. `inverted` draws white-on-black, `outlined` draws a cursor box.
+struct CellText: View {
+    let text: String
+    var inverted = false
+    var outlined = false
+    var color: Color = .black
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            Color.white
-            switch state.screen {
-            case .off:
-                Color(hex: 0x1B1D1C)
-            case .home:
-                VStack(spacing: 0) {
-                    statusBar
-                    homeLines
-                }
-            case .comingSoon:
-                VStack(spacing: 0) {
-                    statusBar
-                    Spacer()
-                    Text("Coming Soon")
-                        .font(.system(size: 30, weight: .bold))
-                        .foregroundStyle(.black)
-                    Text("Eighty4")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(Color(hex: 0x3E6FB0))
-                        .padding(.top, 4)
-                    Spacer()
-                }
-            case .error(let msg):
-                VStack(alignment: .leading, spacing: 0) {
-                    statusBar
-                    row(msg, highlighted: true)
-                    row("1:Quit", highlighted: false)
-                    row("2:Goto", highlighted: false)
-                }
+        HStack(spacing: 0) {
+            ForEach(Array(text.enumerated()), id: \.offset) { _, ch in
+                Text(String(ch))
+                    .font(LCD.font)
+                    .foregroundStyle(inverted ? Color.white : color)
+                    .frame(width: LCD.cellW, height: LCD.lineH)
+                    .background(inverted ? Color.black : Color.clear)
             }
         }
-        .frame(width: 320, height: 240)
-        .clipped()
+        .overlay(outlined ? Rectangle().stroke(Color.black, lineWidth: 2) : nil)
     }
+}
 
-    // MARK: - Status bar
+/// Cell text positioned at a (row, col) inside a top-leading ZStack.
+struct Cells: View {
+    let row: Int
+    let col: Int
+    let text: String
+    var inverted = false
+    var outlined = false
+    var color: Color = .black
 
-    private var statusBar: some View {
+    var body: some View {
+        CellText(text: text, inverted: inverted, outlined: outlined, color: color)
+            .offset(x: LCD.leftPad + CGFloat(col) * LCD.cellW, y: CGFloat(row) * LCD.lineH)
+    }
+}
+
+struct BlinkingCursor: View {
+    let row: Int
+    let col: Int
+    var glyph: String? = nil
+    var underline = false
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.5)) { ctx in
+            let on = Int(ctx.date.timeIntervalSinceReferenceDate * 2) % 2 == 0
+            ZStack {
+                if underline && glyph == nil {
+                    Rectangle().fill(Color.black).frame(height: 3).offset(y: LCD.lineH / 2 - 2)
+                } else {
+                    Rectangle().fill(Color.black)
+                }
+                if let g = glyph {
+                    Text(g).font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
+                }
+            }
+            .frame(width: LCD.cellW, height: LCD.lineH)
+            .opacity(on ? 1 : 0)
+            .offset(x: LCD.leftPad + CGFloat(col) * LCD.cellW, y: CGFloat(row) * LCD.lineH)
+        }
+    }
+}
+
+struct StatusBarView: View {
+    @Environment(CalculatorState.self) private var state
+
+    var body: some View {
         HStack(spacing: 6) {
-            Text("NORMAL FLOAT AUTO REAL RADIAN MP")
+            Text(state.store.statusText)
                 .font(.system(size: 8.5, weight: .semibold))
                 .foregroundStyle(Color(hex: 0x2B2B2B))
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Spacer()
-            Group {
-                switch state.modifier {
-                case .second:
-                    Text("↑").font(.system(size: 11, weight: .bold)).foregroundStyle(Color(hex: 0x2F6EC0))
-                case .alpha, .alphaLock:
-                    Text("A").font(.system(size: 11, weight: .bold)).foregroundStyle(Color(hex: 0x3B8A2A))
-                case .none:
-                    EmptyView()
-                }
+            switch state.modifier {
+            case .second:
+                Text("↑").font(.system(size: 11, weight: .bold)).foregroundStyle(Color(hex: 0x2F6EC0))
+            case .alpha, .alphaLock:
+                Text("A").font(.system(size: 11, weight: .bold)).foregroundStyle(Color(hex: 0x3B8A2A))
+            case .none:
+                EmptyView()
             }
             battery
         }
         .padding(.horizontal, 4)
-        .frame(width: 320, height: statusH)
+        .frame(width: LCD.width, height: LCD.statusH)
         .background(Color(hex: 0xD9D9D9))
     }
 
@@ -89,69 +116,106 @@ struct LCDView: View {
             RoundedRectangle(cornerRadius: 0.5).fill(Color(hex: 0x2B2B2B)).frame(width: 2, height: 4)
         }
     }
+}
 
-    // MARK: - Home screen
+/// The 320×240 display: status bar plus the active screen.
+struct LCDView: View {
+    @Environment(CalculatorState.self) private var state
 
-    private var homeLines: some View {
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            Color.white
+            if state.screen == .off {
+                Color(hex: 0x1B1D1C)
+            } else {
+                VStack(spacing: 0) {
+                    StatusBarView()
+                    ZStack(alignment: .topLeading) {
+                        content
+                    }
+                    .frame(width: LCD.width, height: LCD.bodyHeight, alignment: .topLeading)
+                    .clipped()
+                }
+            }
+        }
+        .frame(width: LCD.width, height: LCD.height)
+        .clipped()
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch state.screen {
+        case .home: HomeScreenView()
+        case .error(let msg): ErrorScreenView(message: msg)
+        case .menu(let id): MenuScreenView(id: id)
+        case .editor(let id): SettingsEditorView(id: id)
+        case .yEquals: YEqualsView()
+        case .listEditor: ListEditorView()
+        case .matrixEditor(let name): MatrixEditorView(name: name)
+        case .graph: GraphScreenView()
+        case .table: TableScreenView()
+        case .message(let lines): TextScreenView(lines: lines)
+        case .about: TextScreenView(lines: state.aboutLines)
+        case .memMgmt: TextScreenView(lines: state.memLines)
+        case .linkReceive: TextScreenView(lines: ["Waiting..."])
+        case .app:
+            if let g = state.game { AppScreenView(game: g) }
+        case .off: EmptyView()
+        }
+    }
+}
+
+struct HomeScreenView: View {
+    @Environment(CalculatorState.self) private var state
+
+    var body: some View {
         let lines = state.displayLines
         let cursor = state.cursorCell
-        return ZStack(alignment: .topLeading) {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                    textRow(line)
-                }
+        ZStack(alignment: .topLeading) {
+            ForEach(Array(lines.enumerated()), id: \.offset) { i, line in
+                let pad = max(0, LCD.cols - line.text.count)
+                let text = line.trailing ? String(repeating: " ", count: pad) + line.text : line.text
+                Cells(row: i, col: 0, text: String(text.prefix(LCD.cols)))
             }
-            TimelineView(.periodic(from: .now, by: 0.5)) { ctx in
-                let on = Int(ctx.date.timeIntervalSinceReferenceDate * 2) % 2 == 0
-                cursorView
-                    .opacity(on ? 1 : 0)
-                    .offset(x: leftPad + CGFloat(cursor.col) * cellW, y: CGFloat(cursor.row) * lineH)
+            BlinkingCursor(row: cursor.row, col: cursor.col, glyph: state.cursorGlyph, underline: state.insertMode)
+        }
+    }
+}
+
+struct ErrorScreenView: View {
+    let message: String
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            Cells(row: 0, col: 0, text: message, inverted: true)
+            Cells(row: 1, col: 0, text: "1:Quit")
+            Cells(row: 2, col: 0, text: "2:Goto")
+        }
+    }
+}
+
+struct TextScreenView: View {
+    let lines: [String]
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            ForEach(Array(lines.prefix(LCD.rows).enumerated()), id: \.offset) { i, line in
+                Cells(row: i, col: 0, text: String(line.prefix(LCD.cols)))
             }
         }
-        .frame(width: 320, height: 240 - statusH, alignment: .topLeading)
     }
+}
 
-    private func textRow(_ line: LCDLine) -> some View {
-        let chars = Array(line.text)
-        let pad = max(0, CalculatorState.columns - chars.count)
-        let cells: [Character] = line.trailing
-            ? Array(repeating: " ", count: pad) + chars
-            : chars + Array(repeating: " ", count: pad)
-        return HStack(spacing: 0) {
-            ForEach(Array(cells.prefix(CalculatorState.columns).enumerated()), id: \.offset) { _, ch in
-                Text(String(ch))
-                    .font(textFont)
-                    .foregroundStyle(.black)
-                    .frame(width: cellW, height: lineH)
+struct AppScreenView: View {
+    let game: any Game
+
+    var body: some View {
+        TimelineView(.animation) { tl in
+            Canvas { ctx, size in
+                game.update(now: tl.date.timeIntervalSinceReferenceDate)
+                game.draw(&ctx, size: size)
             }
         }
-        .padding(.leading, leftPad)
-    }
-
-    private func row(_ text: String, highlighted: Bool) -> some View {
-        Text(text)
-            .font(textFont)
-            .foregroundStyle(highlighted ? .white : .black)
-            .padding(.horizontal, 3)
-            .frame(height: lineH)
-            .background(highlighted ? Color.black : Color.clear)
-            .padding(.leading, leftPad)
-    }
-
-    private var cursorView: some View {
-        ZStack {
-            Rectangle().fill(Color.black)
-            switch state.modifier {
-            case .second:
-                Text("↑").font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
-            case .alpha, .alphaLock:
-                Text("A").font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
-            case .none:
-                if state.insertMode {
-                    Rectangle().fill(Color.white).frame(height: lineH - 3).padding(.bottom, 3)
-                }
-            }
-        }
-        .frame(width: cellW, height: lineH)
+        .frame(width: LCD.width, height: LCD.bodyHeight)
     }
 }

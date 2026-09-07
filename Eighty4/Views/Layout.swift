@@ -11,8 +11,9 @@ enum Layout {
     static let brandY: CGFloat = 76
 
     static let bezelRect = CGRect(x: 55, y: 120, width: 759, height: 570)
-    static let lcdRect = CGRect(x: 149.5, y: 190, width: 570, height: 430)
-    static let lcdScale: CGFloat = 570 / 320
+    // The LCD fills the glossy bezel with only a thin frame around it.
+    static let lcdRect = CGRect(x: 65, y: 128, width: 739, height: 554)
+    static let lcdScale: CGFloat = 739 / 320
 
     static let keypadLeft: CGFloat = 52.5
     static let colPitch: CGFloat = 158

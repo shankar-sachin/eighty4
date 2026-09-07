@@ -19,6 +19,31 @@ struct ContentView: View {
                     .scaleEffect(scale)
                     .frame(width: Layout.bodyW * scale, height: Layout.bodyH * scale)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                // Shell color picker button (also reachable by long-pressing the wordmark).
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button {
+                            Haptics.tap()
+                            state.showShellPicker = true
+                        } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(LinearGradient(colors: [state.shell.light, state.shell.dark], startPoint: .topLeading, endPoint: .bottomTrailing))
+                                Circle().stroke(Color.white.opacity(0.6), lineWidth: 1)
+                                Image(systemName: "paintpalette.fill")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(.white)
+                            }
+                            .frame(width: 32, height: 32)
+                        }
+                        .accessibilityIdentifier("shellPicker")
+                        .padding(.trailing, 14)
+                        .padding(.top, 2)
+                    }
+                    Spacer()
+                }
             }
         }
         .sheet(isPresented: $state.showShellPicker) {

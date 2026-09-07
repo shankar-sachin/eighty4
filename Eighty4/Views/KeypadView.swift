@@ -18,6 +18,7 @@ struct KeypadView: View {
                 KeyView(spec: spec, size: r.size) {
                     state.press(spec.id)
                 }
+                .accessibilityIdentifier("key.\(spec.id.rawValue)")
                 .position(x: r.midX, y: r.midY)
             }
 
@@ -132,26 +133,47 @@ struct DPadView: View {
                 .fill(Color(hex: 0x151516))
                 .frame(width: 70, height: 70)
 
-            arrow(.up, "▲").offset(y: -74)
-            arrow(.down, "▼").offset(y: 74)
-            arrow(.left, "◀").offset(x: -74)
-            arrow(.right, "▶").offset(x: 74)
+            // Each arrow owns a full quadrant wedge of the disc, so there are no dead zones.
+            arrow(.up, "▲", start: 225, end: 315, offset: CGSize(width: 0, height: -74))
+            arrow(.right, "▶", start: -45, end: 45, offset: CGSize(width: 74, height: 0))
+            arrow(.down, "▼", start: 45, end: 135, offset: CGSize(width: 0, height: 74))
+            arrow(.left, "◀", start: 135, end: 225, offset: CGSize(width: -74, height: 0))
         }
         .frame(width: Layout.dpadDiameter, height: Layout.dpadDiameter)
     }
 
-    private func arrow(_ key: KeyID, _ glyph: String) -> some View {
+    private func arrow(_ key: KeyID, _ glyph: String, start: Double, end: Double, offset: CGSize) -> some View {
         Button {
             Haptics.tap()
             press(key)
         } label: {
-            Text(glyph)
-                .font(.system(size: 30))
-                .foregroundStyle(Color.white.opacity(0.92))
-                .frame(width: 84, height: 84)
-                .contentShape(Rectangle())
+            ZStack {
+                Color.clear
+                Text(glyph)
+                    .font(.system(size: 30))
+                    .foregroundStyle(Color.white.opacity(0.92))
+                    .offset(offset)
+            }
+            .frame(width: Layout.dpadDiameter, height: Layout.dpadDiameter)
+            .contentShape(Wedge(startDegrees: start, endDegrees: end))
         }
         .buttonStyle(DPadArrowStyle())
+        .accessibilityIdentifier("dpad.\(key.rawValue)")
+    }
+}
+
+/// A pie-slice of the enclosing circle, measured clockwise from the +x axis (SwiftUI coordinates).
+struct Wedge: Shape {
+    let startDegrees: Double
+    let endDegrees: Double
+
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let c = CGPoint(x: rect.midX, y: rect.midY)
+        p.move(to: c)
+        p.addArc(center: c, radius: rect.width / 2, startAngle: .degrees(startDegrees), endAngle: .degrees(endDegrees), clockwise: false)
+        p.closeSubpath()
+        return p
     }
 }
 

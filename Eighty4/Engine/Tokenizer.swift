@@ -2,29 +2,63 @@ import Foundation
 
 enum Token: Equatable {
     case number(Double)
-    case plus, minus, times, divide, power
-    case negate          // TI "(−)" glyph ⁻
-    case square, inverse // postfix ² and ⁻¹
-    case lparen, rparen
-    case function(String) // sin cos tan asin acos atan log ln sqrt abs
+    case string(String)
+    case op(BinaryOp)
+    case negate                // TI "(−)" glyph ⁻
+    case postfix(String)       // ² ³ ⁻¹ ! ° ʳ ' ᵀ ▶Frac ▶Dec ▶DMS ▶F◀▶D
+    case lparen, rparen, lbrace, rbrace, lbracket, rbracket, comma, store
+    case function(String)      // name without the "("
+    case nullary(String)       // rand
     case pi, e, ans
-    case variable(Character)
+    case variable(String)      // A–Z θ a b c d r n, window/stat variables
+    case listVar(String)       // "L1"
+    case matVar(String)        // "A"
+    case yVar(Int)             // 0...9
+    case command(String)
 
-    /// True if this token can begin a primary expression (used for implicit multiplication).
     var startsPrimary: Bool {
         switch self {
-        case .number, .lparen, .function, .pi, .e, .ans, .variable: return true
-        default: return false
+        case .number, .string, .lparen, .lbrace, .lbracket, .function, .nullary,
+             .pi, .e, .ans, .variable, .listVar, .matVar, .yVar:
+            return true
+        default:
+            return false
         }
     }
 }
 
 enum Tokenizer {
-    private static let functions: [(String, String)] = [
-        ("sin⁻¹(", "asin"), ("cos⁻¹(", "acos"), ("tan⁻¹(", "atan"),
-        ("sin(", "sin"), ("cos(", "cos"), ("tan(", "tan"),
-        ("log(", "log"), ("abs(", "abs"), ("ln(", "ln"), ("√(", "sqrt"),
-    ]
+    static let subscripts = ["₀", "₁", "₂", "₃", "₄", "₅", "₆", "₇", "₈", "₉"]
+
+    static let windowVars = ["Xmin", "Xmax", "Xscl", "Ymin", "Ymax", "Yscl", "Xres",
+                             "TblStart", "ΔTbl", "XFact", "YFact"]
+    static let statVars = ["x̄", "Σx", "Σx²", "Sx", "σx", "ȳ", "Σy", "Σy²", "Sy", "σy", "Σxy",
+                           "minX", "maxX", "minY", "maxY", "Q1", "Med", "Q3", "r²", "n"]
+    static let commands = ["ClrHome", "ClrDraw", "ClrAllLists", "ClrList", "PlotsOff", "PlotsOn",
+                           "Degree", "Radian", "Float", "Fix", "Normal", "Sci", "Eng",
+                           "FnOn", "FnOff", "AxesOn", "AxesOff", "GridOn", "GridOff", "GridDot", "GridLine",
+                           "CoordOn", "CoordOff", "LabelOn", "LabelOff", "ExprOn", "ExprOff",
+                           "ZStandard", "ZDecimal", "ZSquare", "ZTrig", "ZInteger", "ZoomStat", "ZoomFit",
+                           "ZPrevious", "ZoomSto", "ZoomRcl", "ZoomIn", "ZoomOut", "ZQuadrant1",
+                           "Connected", "Dot", "Sequential", "Simul", "Real", "Full", "Horiz", "G-T",
+                           "Clear Entries", "DiagnosticOn", "DiagnosticOff", "SetUpEditor",
+                           "Horizontal", "Vertical", "DrawF", "ClrTable"]
+    static let postfixes = ["⁻¹", "▶Frac", "▶Dec", "▶DMS", "▶F◀▶D", "▶Rect", "▶Polar", "▶n/d◀▶Un/d"]
+
+    /// Multi-character symbols, longest first, as character arrays for allocation-free matching.
+    private static let symbols: [([Character], Token)] = {
+        var s: [(String, Token)] = []
+        for name in Functions.allNames { s.append((name + "(", .function(name))) }
+        for p in postfixes { s.append((p, .postfix(p))) }
+        s += [("nCr", .op(.nCr)), ("nPr", .op(.nPr)), ("and", .op(.and)), ("xor", .op(.xor)),
+              ("or", .op(.or)), ("ˣ√", .op(.nthRoot)), ("≠", .op(.ne)), ("≥", .op(.ge)), ("≤", .op(.le))]
+        s += [("Ans", .ans), ("rand", .nullary("rand"))]
+        for i in 1...6 { s.append(("L\(subscripts[i])", .listVar("L\(i)"))) }
+        for i in 0...9 { s.append(("Y\(subscripts[i])", .yVar(i))) }
+        for v in windowVars + statVars { s.append((v, .variable(v))) }
+        for c in commands { s.append((c, .command(c))) }
+        return s.sorted { $0.0.count > $1.0.count }.map { (Array($0.0), $0.1) }
+    }()
 
     static func tokenize(_ text: String) throws -> [Token] {
         let chars = Array(text)
@@ -35,7 +69,9 @@ enum Tokenizer {
 
         while i < chars.count {
             let c = chars[i]
-
+            if c == " " && !(out.last.map { if case .command = $0 { return true } else { return false } } ?? false) {
+                i += 1; continue
+            }
             if c == " " { i += 1; continue }
 
             // Numbers: digits, optional ".", optional ᴇ exponent.
@@ -61,48 +97,64 @@ enum Tokenizer {
                 continue
             }
 
-            // Multi-character function names.
+            // Matrix names: [A] … [J]
+            if c == "[", i + 2 < chars.count, chars[i + 1].isASCII, chars[i + 1].isUppercase, chars[i + 2] == "]" {
+                out.append(.matVar(String(chars[i + 1])))
+                i += 3
+                continue
+            }
+
+            // Strings
+            if c == "\"" {
+                var j = i + 1
+                var s = ""
+                while j < chars.count, chars[j] != "\"" { s.append(chars[j]); j += 1 }
+                out.append(.string(s))
+                i = min(chars.count, j + 1)
+                continue
+            }
+
+            // Multi-character symbols.
             var matched = false
-            for (prefix, name) in functions {
-                let p = Array(prefix)
-                if i + p.count <= chars.count, Array(chars[i..<(i + p.count)]) == p {
-                    out.append(.function(name))
-                    out.append(.lparen)
-                    i += p.count
+            for (sym, tok) in symbols where sym.count <= chars.count - i {
+                if chars[i..<(i + sym.count)].elementsEqual(sym) {
+                    out.append(tok)
+                    if case .function = tok { out.append(.lparen) }   // the "(" is part of the matched name
+                    i += sym.count
                     matched = true
                     break
                 }
             }
             if matched { continue }
 
-            if i + 3 <= chars.count, Array(chars[i..<(i + 3)]) == Array("Ans") {
-                out.append(.ans); i += 3; continue
-            }
-
-            if c == "⁻" {
-                if i + 1 < chars.count, chars[i + 1] == "¹" {
-                    out.append(.inverse); i += 2
-                } else {
-                    out.append(.negate); i += 1
-                }
-                continue
-            }
-
             switch c {
-            case "+": out.append(.plus)
-            case "−", "-": out.append(.minus)
-            case "×", "*": out.append(.times)
-            case "÷", "/": out.append(.divide)
-            case "^": out.append(.power)
-            case "²": out.append(.square)
+            case "+": out.append(.op(.add))
+            case "−", "-": out.append(.op(.sub))
+            case "×", "*": out.append(.op(.mul))
+            case "÷", "/": out.append(.op(.div))
+            case "^": out.append(.op(.pow))
+            case "=": out.append(.op(.eq))
+            case ">": out.append(.op(.gt))
+            case "<": out.append(.op(.lt))
+            case "²", "³", "!", "°", "ʳ", "'", "ᵀ": out.append(.postfix(String(c)))
             case "(": out.append(.lparen)
             case ")": out.append(.rparen)
+            case "{": out.append(.lbrace)
+            case "}": out.append(.rbrace)
+            case "[": out.append(.lbracket)
+            case "]": out.append(.rbracket)
+            case ",": out.append(.comma)
+            case "→": out.append(.store)
+            case "⁻": out.append(.negate)
             case "π": out.append(.pi)
             case "e": out.append(.e)
-            case "θ", "u", "v", "w": out.append(.variable(c))
+            case "θ": out.append(.variable("θ"))
+            case "i": throw CalcError.dataType
             default:
                 if c.isASCII, c.isUppercase, c.isLetter {
-                    out.append(.variable(c))
+                    out.append(.variable(String(c)))
+                } else if "abcdruvw".contains(c) {
+                    out.append(.variable(String(c)))
                 } else {
                     throw CalcError.syntax
                 }

@@ -1,4 +1,0 @@
-Target dependency graph (2 targets)
-Target 'Eighty4Tests' in project 'Eighty4'
-➜ Explicit dependency on target 'Eighty4' in project 'Eighty4'
-Target 'Eighty4' in project 'Eighty4' (no dependencies)

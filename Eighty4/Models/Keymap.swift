@@ -30,10 +30,4 @@ enum Keymap {
     static let byID: [KeyID: KeySpec] = Dictionary(uniqueKeysWithValues: keys.map { ($0.id, $0) })
 
     static func spec(_ id: KeyID) -> KeySpec? { byID[id] }
-
-    /// Keys whose primary function is out of scope and shows the Coming Soon screen.
-    static let comingSoonPrimary: Set<KeyID> = [.yEquals, .window, .zoom, .trace, .graph, .mode, .stat, .math, .apps, .prgm, .vars, .sto]
-
-    /// Keys whose 2nd function is out of scope.
-    static let comingSoonSecond: Set<KeyID> = [.yEquals, .window, .zoom, .trace, .graph, .stat, .math, .apps, .prgm, .vars, .inverse, .xtn, .zero, .plus, .sto]
 }
