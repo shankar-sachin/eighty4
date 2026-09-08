@@ -126,7 +126,8 @@ enum Tokenizer {
     }
 
     static func tokenize(_ text: String) throws -> [Token] {
-        let chars = Array(text)
+        // Function-style MathPrint templates (exponent, √, Σ …) tokenize as their flat calls.
+        let chars = Array(MathPrint.flatten(text))
         var i = 0
         var out: [Token] = []
 

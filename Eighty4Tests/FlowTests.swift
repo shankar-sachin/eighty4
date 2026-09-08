@@ -29,9 +29,9 @@ final class FlowTests: XCTestCase {
     }
 
     func testMenusInsertTokens() {
-        keys([.math, .right, .enter])                         // MATH → NUM → 1:abs(
+        keys([.math, .right, .enter])                         // MATH → NUM → 1:abs( (MATHPRINT: the |□| template)
         XCTAssertEqual(s.screen, .home)
-        XCTAssertEqual(String(s.entry), "abs(")
+        XCTAssertEqual(String(s.entry), MathPrint.template(.abs))
         keys([.negate, .three, .enter])
         XCTAssertEqual(s.history.last?.text, "3")
         keys([.second, .math, .three])                        // TEST 3: >

@@ -36,7 +36,7 @@ final class CalculatorState {
 
     static let columns = 26
     static let visibleRows = 10
-    static let version = "1.0.0"
+    static let version = "1.0.1"
 
     let store = VariableStore()
 
@@ -57,6 +57,8 @@ final class CalculatorState {
     /// Lines the home screen is scrolled up from the bottom while a history item is selected.
     var homeScroll = 0
     private var nextGroup = 0
+    /// Set while a hardware-keyboard key is being handled: typed text is linear, so it never opens MathPrint templates.
+    @ObservationIgnored var hardwareTyping = false
     /// Letters typed in a row on a hardware keyboard; "sin" + "(" becomes the sin( token.
     @ObservationIgnored var hardwareWord = ""
 
@@ -262,11 +264,18 @@ final class CalculatorState {
             entry.removeSubrange(r)
             cursor = r.lowerBound
         }
-        entry.insert(contentsOf: s, at: cursor)
-        // A freshly inserted template opens with the cursor in its first slot.
-        if let f = s.first, f == MathPrint.fracOpen || f == MathPrint.mixedOpen || f == MathPrint.stackOpen { cursor += 1 }
-        else { cursor += s.count }
+        let at = cursor
+        entry.insert(contentsOf: s, at: at)
+        if let k = s.firstIndex(where: { MathPrint.isOpen($0) || $0 == MathPrint.mixedOpen }) {
+            // A freshly inserted template opens with the cursor in its first empty slot.
+            cursor = MathPrint.firstEmptySlot(in: entry, from: at + s.distance(from: s.startIndex, to: k))
+        } else {
+            cursor += s.count
+        }
     }
+
+    /// In MATHPRINT mode the home screen swaps flat tokens (^, √(, Σ( …) for their stacked templates.
+    func mathPrintToken(_ s: String) -> String { store.mathPrint && !hardwareTyping ? MathPrint.template(for: s) : s }
 
     func deleteAtCursor() {
         if entry.isEmpty { return }

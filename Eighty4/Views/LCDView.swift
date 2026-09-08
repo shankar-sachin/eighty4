@@ -93,8 +93,41 @@ enum MathGlyph {
         case MathPrint.rowSep: return ";"
         case MathPrint.colSep: return ","
         case MathPrint.stackClose: return "}"
-        default: return String(ch)
+        case MathPrint.slotSep: return ","
+        case MathPrint.tplClose: return ")"
+        default: return MathPrint.Kind.of(ch)?.fallbackGlyph ?? String(ch)
         }
+    }
+}
+
+/// A radical sign, |abs| bar, or big Σ / ∫ spanning its frame.
+struct DecorView: View {
+    let decor: MathLayout.Decor
+    let color: Color
+
+    var body: some View {
+        let w = CGFloat(decor.w) * LCD.cellW, h = CGFloat(decor.h) * LCD.lineH
+        switch decor.kind {
+        case .radical:
+            RadicalShape().stroke(color, lineWidth: 1.5).frame(width: w, height: h)
+        case .vbar:
+            Rectangle().fill(color).frame(width: 1.5, height: h - 4).frame(width: w, height: h)
+        case .sigma:
+            Text("Σ").font(.system(size: 24, weight: .regular)).foregroundStyle(color).frame(width: w, height: h)
+        case .integral:
+            Text("∫").font(.system(size: 28, weight: .light)).foregroundStyle(color).frame(width: w, height: h)
+        }
+    }
+}
+
+/// √ drawn to meet the vinculum at the top-right of its cell.
+struct RadicalShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: rect.minX + 1, y: rect.midY + 1))
+        p.addLine(to: CGPoint(x: rect.minX + 4, y: rect.maxY - 3))
+        p.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + 1))
+        return p
     }
 }
 
@@ -123,11 +156,15 @@ struct MathLineView: View {
                             .offset(x: left + CGFloat(g.x) * LCD.cellW + 1.5, y: top + CGFloat(g.y) * LCD.lineH + 3)
                     } else {
                         Text(String(g.ch))
-                            .font(LCD.font)
+                            .font(g.small ? LCD.smallFont : LCD.font)
                             .foregroundStyle(fg)
                             .frame(width: LCD.cellW, height: LCD.lineH)
                             .offset(x: left + CGFloat(g.x) * LCD.cellW, y: top + CGFloat(g.y) * LCD.lineH)
                     }
+                }
+                ForEach(Array(r.decors.enumerated()), id: \.offset) { _, d in
+                    DecorView(decor: d, color: fg)
+                        .offset(x: left + CGFloat(d.x) * LCD.cellW, y: top + CGFloat(d.y) * LCD.lineH)
                 }
                 ForEach(Array(r.bars.enumerated()), id: \.offset) { _, b in
                     Rectangle().fill(fg)

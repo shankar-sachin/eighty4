@@ -14,6 +14,7 @@ final class KeyboardTests: XCTestCase {
     private func type(_ text: String) { text.forEach { s.pressHardware(.char($0)) } }
 
     func testDelRemovesWholeFunctionToken() {
+        s.store.options["mathprint"] = 1                 // CLASSIC: √( is a flat token, not a template
         keys([.two, .sin, .three, .rparen])              // 2sin(3)
         XCTAssertEqual(String(s.entry), "2sin(3)")
         keys([.left, .left, .left])                      // cursor lands on "sin("
@@ -41,6 +42,7 @@ final class KeyboardTests: XCTestCase {
     }
 
     func testDigitsDoNotFuseIntoTokens() {
+        s.store.options["mathprint"] = 1                 // CLASSIC: ^ types flat
         keys([.one, .zero, .power, .lparen, .del])
         XCTAssertEqual(String(s.entry), "10^")
     }

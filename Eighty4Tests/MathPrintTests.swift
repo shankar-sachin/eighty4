@@ -185,6 +185,87 @@ final class MathPrintTests: XCTestCase {
         XCTAssertEqual(Graphing.y(1, at: 3, store: s.store), 9)
     }
 
+    // MARK: - Function-style templates (^, √, ˣ√, logBASE, abs, Σ, d/dx, ∫)
+
+    private func tpl(_ k: MathPrint.Kind, _ s: String...) -> String { MathPrint.template(k, s) }
+
+    func testFunctionTemplates() throws {
+        XCTAssertEqual(try eval("2" + tpl(.exp, "3")), "8")
+        XCTAssertEqual(try eval("2" + tpl(.exp, "3") + "+1"), "9")
+        XCTAssertEqual(try eval("⁻2" + tpl(.exp, "2")), "⁻4")                       // ^ binds tighter than negation
+        XCTAssertEqual(try eval("e" + tpl(.exp, "0")), "1")
+        XCTAssertEqual(try eval("10" + tpl(.exp, "2")), "100")
+        XCTAssertEqual(try eval(tpl(.sqrt, "16")), "4")
+        XCTAssertEqual(try eval(tpl(.root, "3", "8")), "2")
+        XCTAssertEqual(try eval(tpl(.logBase, "2", "8")), "3")
+        XCTAssertEqual(try eval(tpl(.abs, "⁻5")), "5")
+        XCTAssertEqual(try eval(tpl(.sum, "X", "1", "10", "X")), "55")
+        XCTAssertEqual(try eval(tpl(.deriv, "X", "X²", "3")), "6")
+        XCTAssertEqual(try eval(tpl(.integral, "0", "1", "X²", "X")), ".3333333333")
+        XCTAssertEqual(try eval(tpl(.sqrt, frac("1", "4"))), ".5")                  // templates nest both ways
+        XCTAssertEqual(try eval(frac("1", "2" + tpl(.exp, "2"))), "1/4")
+        assertError("2" + tpl(.exp), .syntax)                                       // empty slot
+        XCTAssertEqual(MathPrint.classic("2" + tpl(.exp, "3")), "2^(3)")
+        XCTAssertEqual(MathPrint.classic(tpl(.sum, "X", "1", "10", "X")), "Σ(X,X,1,10)")
+        XCTAssertEqual(MathPrint.classic(tpl(.logBase, "2", frac("1", "8"))), "logBASE((1)/(8),2)")
+        XCTAssertEqual(MathPrint.classicInsert(MathPrint.template(for: "Σ(")), "Σ(")
+        XCTAssertEqual(MathPrint.classicInsert(MathPrint.template(for: "³√(")), "³√(")
+        XCTAssertEqual(MathPrint.classicInsert(MathPrint.template(for: "e^(")), "e^(")
+        XCTAssertEqual(MathPrint.template(for: "sin("), "sin(")
+    }
+
+    func testFunctionTemplateLayout() {
+        let e = MathLayout.layout("2" + tpl(.exp, "3"), width: 26)
+        XCTAssertEqual(e.rows[0].height, 2)
+        XCTAssertEqual(e.rows[0].glyphs.first { $0.ch == "2" }?.y, 0.5)           // base on the axis
+        let three = e.rows[0].glyphs.first { $0.ch == "3" }
+        XCTAssertEqual(three?.y, 0)                                                 // exponent raised…
+        XCTAssertEqual(three?.small, true)                                          // …and small
+        XCTAssertEqual(e.cursor(at: 2).y, 0)                                        // cursor in the exponent
+        XCTAssertEqual(e.cursor(at: 4).y, 0.5)                                      // after the template, back on the axis
+        let r = MathLayout.layout(tpl(.sqrt, "16"), width: 26)
+        XCTAssertEqual(r.rows[0].height, 1)
+        XCTAssertEqual(r.rows[0].decors.map(\.kind), [.radical])
+        XCTAssertEqual(r.rows[0].bars.count, 1)                                     // the vinculum
+        XCTAssertEqual(r.rows[0].glyphs.first { $0.ch == "1" }?.x, 1)
+        let s = MathLayout.layout(tpl(.sum, "X", "1", "10", "X"), width: 26)
+        XCTAssertEqual(s.rows[0].height, 3)
+        XCTAssertEqual(s.rows[0].decors.map(\.kind), [.sigma])
+        XCTAssertEqual(s.cursor(at: 1).y, 2)                                        // variable slot below the Σ
+        let a = MathLayout.layout(tpl(.abs), width: 26)
+        XCTAssertEqual(a.rows[0].decors.count, 2)
+        XCTAssertEqual(a.rows[0].glyphs.filter(\.placeholder).count, 1)
+        let d = MathLayout.layout(tpl(.deriv, "X", "X²", "3"), width: 26)
+        XCTAssertEqual(d.rows[0].height, 2)
+        XCTAssertEqual(d.rows[0].bars.count, 1)                                     // d over dX
+    }
+
+    func testFunctionTemplateEditingOnHome() {
+        let s = CalculatorState()
+        s.store.options["mathprint"] = 0
+        func keys(_ k: [KeyID]) { k.forEach { s.press($0) } }
+        keys([.two, .power])
+        XCTAssertEqual(String(s.entry), "2" + tpl(.exp))
+        XCTAssertEqual(s.cursor, 2)                                                  // in the exponent slot
+        keys([.three, .right, .plus, .one, .enter])
+        XCTAssertEqual(s.history.last?.text, "9")
+        XCTAssertEqual(s.history[s.history.count - 2].rows, 2)
+        keys([.math, .four])                                                        // ³√( arrives with its index filled
+        XCTAssertEqual(String(s.entry), tpl(.root, "3"))
+        XCTAssertEqual(s.cursor, 3)                                                  // cursor in the radicand
+        keys([.eight, .enter])
+        XCTAssertEqual(s.history.last?.text, "2")
+        keys([.math, .eight, .xtn, .right, .xtn, .square, .right, .three, .enter])   // d/dX(X²)|X=3
+        XCTAssertEqual(s.history.last?.text, "6")
+        keys([.second, .ln, .zero, .enter])                                          // e^0 as a raised template
+        XCTAssertEqual(s.history.last?.text, "1")
+        keys([.math, .right, .one, .del])                                            // DEL inside |□| removes the template
+        XCTAssertEqual(s.entry, [])
+        s.store.options["mathprint"] = 1                                             // CLASSIC: the same keys type flat tokens
+        keys([.two, .power, .three])
+        XCTAssertEqual(String(s.entry), "2^3")
+    }
+
     // MARK: - Complex matrices
 
     func testComplexMatrices() throws {

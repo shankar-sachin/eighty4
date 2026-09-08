@@ -13,7 +13,9 @@ extension CalculatorState {
     /// Returns false when the key means nothing to the calculator.
     @discardableResult
     func pressHardware(_ k: HardwareKey) -> Bool {
+        hardwareTyping = true
         defer {
+            hardwareTyping = false
             if case .char(let c) = k, c.isASCII, c.isLetter { hardwareWord.append(c.lowercased()) }
             else { hardwareWord = "" }
         }

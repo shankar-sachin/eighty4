@@ -125,6 +125,20 @@ enum DemoScripts {
                   .math, .up, .up, .enter, .two, .xtn, .square, .right, .xtn, .second, .math, .five, .zero, .right, .xtn, .right, .xtn, .second, .math, .four, .zero, .enter])
         case "mathprintedit":
             keys([.math, .left, .one, .one, .right, .two, .right, .plus, .math, .left, .one, .one])
+        case "mathprint2":
+            // 2³+1, √16, ³√8, log₂(8), |⁻5|
+            keys([.two, .power, .three, .right, .plus, .one, .enter,
+                  .second, .square, .one, .six, .enter,
+                  .math, .four, .eight, .enter,
+                  .math, .up, .up, .up, .enter, .two, .right, .eight, .enter,
+                  .math, .right, .one, .negate, .five, .enter])
+        case "mathprint3":
+            // Σ(X, X=1..10), ∫₀¹ X² dX, d/dX(X²)|X=3
+            keys([.math, .up, .up, .up, .up, .enter, .xtn, .right, .one, .right, .one, .zero, .right, .xtn, .enter,
+                  .math, .nine, .zero, .right, .one, .right, .xtn, .square, .right, .xtn, .enter,
+                  .math, .eight, .xtn, .right, .xtn, .square, .right, .three, .enter])
+        case "mathprintedit2":
+            keys([.two, .power, .three, .right, .plus, .second, .square])
         case "cmatrix":
             // [[1,i][2,3]]→[A], then [A]², det([A]), [A]⁻¹
             keys([.second, .multiply, .second, .multiply, .one, .comma, .second, .dot, .second, .minus, .second, .multiply, .two, .comma, .three, .second, .minus, .second, .minus, .sto, .second, .inverse, .enter, .enter,

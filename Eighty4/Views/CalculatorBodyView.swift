@@ -86,7 +86,7 @@ struct BrandStripView: View {
 
     var body: some View {
         HStack(alignment: .center) {
-            Text("Eighty4")
+            Text("Eighty4+ CE")
                 .font(.system(size: 36, weight: .semibold, design: .default))
                 .foregroundStyle(Color.white.opacity(0.92))
                 .tracking(1)

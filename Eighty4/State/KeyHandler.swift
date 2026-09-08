@@ -392,7 +392,7 @@ extension CalculatorState {
         }
         if routeNavigation(action) { return }
         switch action {
-        case .insert(let s): historyIndex = nil; insert(s)
+        case .insert(let s): historyIndex = nil; insert(mathPrintToken(s))
         case .enter: evaluate()
         case .entry:
             if entry.isEmpty, let last = store.entries.last { entry = Array(last); cursor = entry.count }
@@ -524,9 +524,9 @@ extension CalculatorState {
         case .insert(let s):
             closeMenu()
             // Stacked templates only render on the home screen; other editors get the flat form.
-            if screen == .home { insert(s) }
+            if screen == .home { insert(mathPrintToken(s)) }
             else if screen == .yEquals || screen == .solver || isProgramEditor { insert(MathPrint.classicInsert(s)) }
-            else { screen = .home; insert(s) }
+            else { screen = .home; insert(mathPrintToken(s)) }
         case .submenu(let id):
             menuTab = 0; menuRow = 0
             screen = .menu(id)
