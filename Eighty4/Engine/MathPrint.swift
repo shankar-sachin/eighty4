@@ -75,7 +75,7 @@ enum MathPrint {
             case .exp: return "^(" + slot(0) + ")"
             case .sqrt: return "√(" + slot(0) + ")"
             case .root: return "(" + slot(0) + ")ˣ√(" + slot(1) + ")"
-            case .logBase: return "logBASE(" + slot(1) + "," + slot(0) + ")"
+            case .logBase: return slot(0).isEmpty ? "log(" + slot(1) + ")" : "logBASE(" + slot(1) + "," + slot(0) + ")"   // empty base = 10, as on the Evo's log key
             case .abs: return "abs(" + slot(0) + ")"
             case .sum: return "Σ(" + slot(3) + "," + slot(0) + "," + slot(1) + "," + slot(2) + ")"
             case .deriv: return "nDeriv(" + slot(1) + "," + slot(0) + "," + slot(2) + ")"
@@ -107,6 +107,7 @@ enum MathPrint {
         ("logBASE(", template(.logBase)), ("abs(", template(.abs)), ("Σ(", template(.sum)),
         ("nDeriv(", template(.deriv)), ("fnInt(", template(.integral)),
         ("e^(", "e" + template(.exp)), ("10^(", "10" + template(.exp)),
+        ("/", fractionTemplate), ("_", mixedTemplate),   // the Evo's n/d key and the FRAC menu
     ]
     static func template(for flat: String) -> String { templates.first { $0.flat == flat }?.template ?? flat }
 

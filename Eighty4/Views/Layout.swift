@@ -30,10 +30,12 @@ enum Layout {
     static let dpadCenter = CGPoint(x: 671.5, y: 932)
     static let dpadDiameter: CGFloat = 232
 
-    static func rect(row: Int, col: Int) -> CGRect {
+    /// The Evo's top row carries its own 2nd/alpha legends, so those keys are as tall as the rest.
+    static func rect(row: Int, col: Int, evo: Bool = false) -> CGRect {
         let x = keypadLeft + CGFloat(col - 1) * colPitch
         if row == 1 {
-            return CGRect(x: x + (keyW - row1W) / 2, y: row1Y, width: row1W, height: row1H)
+            let h: CGFloat = evo ? 78 : row1H
+            return CGRect(x: x + (keyW - row1W) / 2, y: row1Y + (row1H - h) / 2, width: row1W, height: h)
         }
         let y = rowsY + CGFloat(row - 2) * rowPitch
         return CGRect(x: x, y: y, width: keyW, height: keyH)

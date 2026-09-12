@@ -398,6 +398,8 @@ enum KeyCodes {
         case .ln: return 81; case .four: return 82; case .five: return 83; case .six: return 84; case .minus: return 85
         case .sto: return 91; case .one: return 92; case .two: return 93; case .three: return 94; case .plus: return 95
         case .on: return 0; case .zero: return 102; case .dot: return 103; case .negate: return 104; case .enter: return 105
+        // TI-84 Evo keys report the code of the CE key at the same position.
+        case .fraction: return 42; case .expTemplate: return 51; case .toggle: return 95
         }
     }
 }

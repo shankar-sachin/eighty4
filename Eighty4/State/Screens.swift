@@ -7,6 +7,8 @@ enum MenuID: Equatable {
     case memMgmt, group, prgmCtl
     /// MATH piecewise( in MATHPRINT mode: how many pieces the template gets.
     case piecewise
+    /// alpha + f1…f4: FRAC, FUNC, MTRX and YVAR shortcut menus.
+    case shortcut(Int)
 }
 
 enum EditorID: Equatable {
@@ -17,6 +19,8 @@ enum EditorID: Equatable {
 enum AppID: Equatable {
     case geoDash, tetris
     case plySmlt2, conics, inequalz, probSim, sciTools, transfrm, celSheet, cabriJr, vernier
+    /// TI-84 Evo Python shell.
+    case python
 }
 
 enum CalcOp: Equatable {
@@ -102,6 +106,10 @@ enum Screen: Equatable {
     case programName
     case programMenu(String, [String])
     case groupName
+    /// TI-84 Evo icon home screen (the on/home key toggles it with the Calculator app).
+    case iconHome
+    /// TI-84 Evo Help app, one page at a time.
+    case help(Int)
 }
 
 struct CalcResult: Equatable {
@@ -119,4 +127,6 @@ enum KeyAction: Equatable {
     case enter, entry, clear, del, ins
     case left, right, up, down
     case rcl, on, none
+    /// TI-84 Evo: ◂▸ toggle key, 2nd+clear Undo, home key, and 2nd+◀/▶ jumps to the ends of the line.
+    case toggle, undo, home, lineStart, lineEnd
 }

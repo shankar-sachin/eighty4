@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Visual style of a physical key on the TI-84 Plus CE.
+/// Visual style of a physical key.
 enum KeyStyle {
     case dark   // charcoal key, white legend (most keys)
     case white  // digits, ".", "(−)"
@@ -20,6 +20,9 @@ enum KeyID: String, CaseIterable, Hashable, Identifiable {
     case sto, one, two, three, plus
     case on, zero, dot, negate, enter
     case up, down, left, right
+    // TI-84 Evo only: the stacked-fraction key (apps position), the x^□ exponent key (x⁻¹ position)
+    // and the ◂▸ toggle key (+ position; the operators moved up one row).
+    case fraction, expTemplate, toggle
 
     var id: String { rawValue }
 }
@@ -42,6 +45,8 @@ struct KeySpec: Identifiable {
         case .zero, .one, .two, .three, .four, .five, .six, .seven, .eight, .nine: return 40
         case .dot, .plus, .minus, .multiply, .divide: return 42
         case .comma: return 46
+        case .toggle: return 38
+        case .fraction, .expTemplate: return 30
         default: return 33
         }
     }

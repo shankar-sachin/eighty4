@@ -285,6 +285,28 @@ enum Graphing {
 
     // MARK: - CALC operations
 
+    /// TI-84 Evo Points of Interest trace: the y-intercept, zero, extremum or intersection that the trace
+    /// cursor just stepped over between `x0` and `x1` (strictly inside, so a cursor sitting on one moves on).
+    struct PointOfInterest: Equatable { let label: String; let x: Double; let y: Double }
+
+    static func pointOfInterest(_ n: Int, from x0: Double, to x1: Double, store: VariableStore) -> PointOfInterest? {
+        let lo = min(x0, x1), hi = max(x0, x1)
+        guard lo < hi, store.graphType == .function,
+              let y0 = y(n, at: lo, store: store), let y1 = y(n, at: hi, store: store), y0.isFinite, y1.isFinite else { return nil }
+        if lo < 0, 0 < hi, let yy = y(n, at: 0, store: store), yy.isFinite { return PointOfInterest(label: "Y-intercept", x: 0, y: yy) }
+        if y0 * y1 < 0, let z = try? zero(n, lo, hi, store: store) { return PointOfInterest(label: "Zero", x: z, y: 0) }
+        if let d0 = try? derivative(n, at: lo, store: store), let d1 = try? derivative(n, at: hi, store: store), d0 * d1 < 0,
+           let ex = try? extremum(n, lo, hi, isMax: d0 > 0, store: store), let ey = y(n, at: ex, store: store) {
+            return PointOfInterest(label: d0 > 0 ? "Maximum" : "Minimum", x: ex, y: ey)
+        }
+        for m in definedFunctions(store) where m != n {
+            guard let m0 = y(m, at: lo, store: store), let m1 = y(m, at: hi, store: store), (y0 - m0) * (y1 - m1) < 0,
+                  let ix = try? intersect(n, m, guess: (lo + hi) / 2, store: store), ix > lo, ix < hi, let iy = y(n, at: ix, store: store) else { continue }
+            return PointOfInterest(label: "Intersection", x: ix, y: iy)
+        }
+        return nil
+    }
+
     static func zero(_ n: Int, _ lo: Double, _ hi: Double, store: VariableStore) throws -> Double {
         guard let flo = y(n, at: lo, store: store), let fhi = y(n, at: hi, store: store) else { throw CalcError.undefined }
         if flo == 0 { return lo }

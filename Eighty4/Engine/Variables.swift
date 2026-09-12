@@ -98,6 +98,8 @@ final class VariableStore {
     @ObservationIgnored var seqCacheKey = ""
     /// Display form forced by ▶Rect (1) / ▶Polar (2) for the result being formatted; cleared per evaluation.
     @ObservationIgnored var pendingComplexForm: Int? = nil
+    /// True when the app is being a TI-84 Evo (set by `CalculatorState.model`; not persisted here).
+    var evo = false
 
     var xOverride: Double? {
         get { overrides["X"] }
@@ -124,7 +126,11 @@ final class VariableStore {
 
     // MARK: - Settings accessors
 
-    var degrees: Bool { options["angle", default: 0] == 1 }
+    /// MODE angle: 0 RADIAN, 1 DEGREE, 2 GRADIAN (TI-84 Evo).
+    var angleMode: Int { options["angle", default: 0] }
+    var degrees: Bool { angleMode == 1 }
+    /// Radians per unit of the current angle mode.
+    var radiansPerUnit: Double { angleMode == 1 ? .pi / 180 : (angleMode == 2 ? .pi / 200 : 1) }
     var notation: Int { options["notation", default: 0] }
     var fixedDigits: Int? {
         let f = options["float", default: 0]
@@ -178,7 +184,7 @@ final class VariableStore {
         let notationText = ["NORMAL", "SCI", "ENG"][min(2, notation)]
         let floatText = fixedDigits.map { String($0) } ?? "FLOAT"
         let complexText = ["REAL", "a+bi", "re^θi"][min(2, options["complex", default: 0])]
-        let angleText = degrees ? "DEGREE" : "RADIAN"
+        let angleText = ["RADIAN", "DEGREE", "GRADIAN"][min(2, angleMode)]
         let answersText = ["AUTO", "DEC", "FRAC"][min(2, answersMode)]
         return "\(notationText) \(floatText) \(answersText) \(complexText) \(angleText)" + (mathPrint ? " MP" : "")
     }

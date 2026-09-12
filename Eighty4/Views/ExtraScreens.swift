@@ -8,7 +8,7 @@ struct SolverView: View {
         let store = state.store
         if state.solverStage == 0 {
             ZStack(alignment: .topLeading) {
-                Cells(row: 0, col: 0, text: "EQUATION SOLVER")
+                Cells(row: 0, col: 0, text: state.model == .evo ? "NUMERIC SOLVER" : "EQUATION SOLVER")
                 Cells(row: 1, col: 0, text: "eqn:0=")
                 let width = LCD.cols - 6
                 let windowStart = max(0, state.cursor - width + 1)
@@ -22,24 +22,23 @@ struct SolverView: View {
             let rows = vars.count + 2
             let start = max(0, min(state.solverRow - (visible - 2), max(0, rows - visible)))
             ZStack(alignment: .topLeading) {
-                Cells(row: 0, col: 0, text: String((store.solverEqn + "=0").prefix(LCD.cols)))
+                Cells(row: 0, col: 0, text: String(Solver.title(store.solverEqn).prefix(LCD.cols)))
                 ForEach(0..<min(visible, rows - start), id: \.self) { i in
                     let idx = start + i
                     let row = i + 1
-                    if idx < vars.count {
-                        let name = vars[idx]
+                    if idx <= vars.count {
                         let typing = state.editorTyping && state.solverRow == idx
-                        let value = typing ? String(state.editorBuffer) : ResultFormatter.number(store.reals[name] ?? 0, notation: store.notation, fixed: store.fixedDigits)
-                        let text = (state.solverSolved == name ? "■" : " ") + name + "=" + value
+                        let value = typing ? String(state.editorBuffer) : state.solverRowText(idx)
+                        let label = idx < vars.count ? vars[idx] : "bound"
+                        let mark = idx < vars.count && state.solverSolved == vars[idx] ? "■" : " "
+                        let text = mark + label + "=" + value
                         Cells(row: row, col: 0, text: String(text.prefix(LCD.cols)))
                         if state.solverRow == idx {
                             BlinkingCursor(row: row, col: min(LCD.cols - 1, text.count), glyph: state.cursorGlyph)
                         }
-                    } else if idx == vars.count {
-                        Cells(row: row, col: 0, text: " bound={⁻1ᴇ99,1ᴇ99}", inverted: state.solverRow == idx)
                     } else {
                         let residual: String = {
-                            guard let v = try? Evaluator.number(store.solverEqn, ctx: EvalContext(store: store)) else { return "" }
+                            guard let v = Solver.residualValue(store.solverEqn, store: store) else { return "" }
                             return ResultFormatter.number((v * 1e9).rounded() / 1e9)
                         }()
                         Cells(row: row, col: 0, text: String((" left−rt=" + residual).prefix(LCD.cols)))

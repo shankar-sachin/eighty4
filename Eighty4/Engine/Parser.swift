@@ -524,7 +524,7 @@ struct Parser {
 
 enum Postfix {
     static func apply(_ p: String, _ v: Value, _ ctx: EvalContext) throws -> Value {
-        let degrees = ctx.store.degrees
+        let unit = ctx.store.radiansPerUnit   // radians per unit of the MODE angle (RADIAN / DEGREE / GRADIAN)
         switch p {
         case "²": return try Value.apply(.mul, v, v)
         case "³": return try Value.apply(.mul, try Value.apply(.mul, v, v), v)
@@ -541,9 +541,9 @@ enum Postfix {
                 return tgamma(x + 1)
             }
         case "%": return try v.mapNumbers { $0 / 100 }
-        case "°": return try v.mapNumbers { degrees ? $0 : $0 * .pi / 180 }
-        case "ʳ": return try v.mapNumbers { degrees ? $0 * 180 / .pi : $0 }
-        case "'": return try v.mapNumbers { degrees ? $0 / 60 : $0 / 60 * .pi / 180 }
+        case "°": return try v.mapNumbers { $0 * (.pi / 180) / unit }
+        case "ʳ": return try v.mapNumbers { $0 / unit }
+        case "'": return try v.mapNumbers { $0 / 60 * (.pi / 180) / unit }
         case "ᵀ":
             if case .cmatrix(let m) = v { return .cmatrix(Matrix.transpose(m)) }
             guard case .matrix(let m) = v else { throw CalcError.dataType }

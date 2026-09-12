@@ -19,6 +19,23 @@ struct EditorDef {
 enum Editors {
     static func def(_ id: EditorID, store: VariableStore) -> EditorDef {
         switch id {
+        case .mode where store.evo:
+            // TI-84 Evo MODE screen: GRADIAN, full option names, AUTO/DECIMAL answers, DIAGNOSTICS, LANGUAGE.
+            return EditorDef(title: nil, rows: [
+                .options(SettingRow(key: "mathprint", label: nil, options: ["MATHPRINT", "CLASSIC"])),
+                .options(SettingRow(key: "notation", label: nil, options: ["NORMAL", "SCIENTIFIC", "ENG"])),
+                .options(SettingRow(key: "float", label: nil, options: ["FLOAT", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"])),
+                .options(SettingRow(key: "angle", label: nil, options: ["RADIAN", "DEGREE", "GRADIAN"])),
+                .options(SettingRow(key: "graph", label: nil, options: ["FUNCTION", "PARAM", "POLAR", "SEQ"])),   // rows must fit 26 cells
+                .options(SettingRow(key: "line", label: nil, options: ["THICK", "DOT-THK", "THIN", "DOT-THN"])),
+                .options(SettingRow(key: "seq", label: nil, options: ["SEQUENTIAL", "SIMULTANEOUS"])),
+                .options(SettingRow(key: "complex", label: nil, options: ["REAL", "a+bi", "re^θi"])),
+                .options(SettingRow(key: "screen", label: nil, options: ["FULL", "HORIZ", "GRAPH-TABLE"])),
+                .options(SettingRow(key: "fraction", label: nil, options: ["n/d", "Un/d"])),
+                .options(SettingRow(key: "answers", label: nil, options: ["AUTO", "DECIMAL"])),
+                .options(SettingRow(key: "statdiag", label: "DIAGNOSTICS:", options: ["OFF", "ON"])),
+                .options(SettingRow(key: "language", label: "LANGUAGE:", options: ["EN", "FR", "ES", "DE", "IT", "NL", "PT"])),
+            ])
         case .mode:
             return EditorDef(title: nil, rows: [
                 .options(SettingRow(key: "mathprint", label: nil, options: ["MATHPRINT", "CLASSIC"])),
@@ -45,7 +62,7 @@ enum Editors {
                 .options(SettingRow(key: "expr", label: nil, options: ["ExprOn", "ExprOff"])),
                 .options(SettingRow(key: "border", label: "BorderColor:", options: ["1", "2", "3", "4"])),
                 .options(SettingRow(key: "asym", label: "Detect Asymptotes:", options: ["On", "Off"])),
-            ])
+            ] + (store.evo ? [.options(SettingRow(key: "poi", label: "POI Trace:", options: ["On", "Off"]))] : []))
         case .tblset:
             return EditorDef(title: "TABLE SETUP", rows: [
                 .number(key: "TblStart", label: "TblStart"),

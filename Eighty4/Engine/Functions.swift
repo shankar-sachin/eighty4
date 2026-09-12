@@ -43,8 +43,8 @@ enum Functions {
         for x in xs { acc = try ComplexMath.apply(op, acc.asComplex ?? (0, 0), x) }
         return acc
     }
-    private static func toRad(_ x: Double, _ ctx: EvalContext) -> Double { ctx.store.degrees ? x * .pi / 180 : x }
-    private static func fromRad(_ x: Double, _ ctx: EvalContext) -> Double { ctx.store.degrees ? x * 180 / .pi : x }
+    private static func toRad(_ x: Double, _ ctx: EvalContext) -> Double { x * ctx.store.radiansPerUnit }
+    private static func fromRad(_ x: Double, _ ctx: EvalContext) -> Double { x / ctx.store.radiansPerUnit }
 
     private static func unary(_ f: @escaping (Double) throws -> Double) -> FunctionDef {
         FunctionDef(minArgs: 1, maxArgs: 1) { args, _ in try args[0].mapNumbers(f) }

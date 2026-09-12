@@ -4,6 +4,7 @@ struct CalculatorBodyView: View {
     @Environment(CalculatorState.self) private var state
 
     var body: some View {
+        let evo = state.model == .evo
         ZStack(alignment: .topLeading) {
             // Colored shell rim.
             RoundedRectangle(cornerRadius: Layout.bodyCorner, style: .continuous)
@@ -15,13 +16,16 @@ struct CalculatorBodyView: View {
                 )
                 .shadow(color: .black.opacity(0.55), radius: 30, y: 18)
 
-            // Black front face.
+            // Front face: black on the CE, the shell colour on the Evo (its whole front is one piece).
             RoundedRectangle(cornerRadius: Layout.faceCorner, style: .continuous)
                 .fill(
-                    LinearGradient(
-                        colors: [Color(hex: 0x1A1A1B), Color(hex: 0x111112)],
-                        startPoint: .top, endPoint: .bottom
-                    )
+                    evo
+                        ? LinearGradient(colors: [state.shell.light, state.shell.color], startPoint: .top, endPoint: .bottom)
+                        : LinearGradient(colors: [Color(hex: 0x1A1A1B), Color(hex: 0x111112)], startPoint: .top, endPoint: .bottom)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: Layout.faceCorner, style: .continuous)
+                        .stroke(Color.black.opacity(evo ? 0.08 : 0), lineWidth: 1.5)
                 )
                 .padding(Layout.rim)
 
@@ -85,10 +89,11 @@ struct BrandStripView: View {
     @Environment(CalculatorState.self) private var state
 
     var body: some View {
+        let light = state.model == .evo && state.shell.isLight
         HStack(alignment: .center) {
-            Text("Eighty4+ CE")
+            Text(state.model.brand)
                 .font(.system(size: 36, weight: .semibold, design: .default))
-                .foregroundStyle(Color.white.opacity(0.92))
+                .foregroundStyle(light ? Color.black.opacity(0.82) : Color.white.opacity(0.92))
                 .tracking(1)
             Spacer()
             Image("Logo")
@@ -99,7 +104,7 @@ struct BrandStripView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(Color.white.opacity(0.25), lineWidth: 1)
+                        .stroke(light ? Color.black.opacity(0.2) : Color.white.opacity(0.25), lineWidth: 1)
                 )
         }
         .contentShape(Rectangle())

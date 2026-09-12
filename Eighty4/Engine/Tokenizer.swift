@@ -206,7 +206,7 @@ enum Tokenizer {
             switch c {
             case "+": out.append(.op(.add))
             case "−", "-": out.append(.op(.sub))
-            case "×", "*": out.append(.op(.mul))
+            case "×", "*", "⋅": out.append(.op(.mul))   // ⋅ is the TI-84 Evo's multiplication sign
             case "÷", "/": out.append(.op(.div))
             case "^": out.append(.op(.pow))
             case "=": out.append(.op(.eq))

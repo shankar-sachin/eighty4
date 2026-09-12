@@ -7,7 +7,7 @@ extension CalculatorState {
         defer { store.save() }
 
         if screen == .off {
-            if key == .on { screen = .home; modifier = .none }
+            if key == .on { screen = model == .evo ? .iconHome : .home; modifier = .none }
             return
         }
         if key == .second {
@@ -40,9 +40,12 @@ extension CalculatorState {
         if runner != nil { handleRunner(key, mod); return }
         if mod == .second && key == .on { turnOff(); return }
         if mod == .second && key == .mode { quitToHome(); return }
+        if model == .evo && key == .on { pressHome(); return }
 
         switch screen {
         case .home: handleHome(key, mod)
+        case .iconHome: handleIconHome(key, mod)
+        case .help(let page): handleHelp(page, key, mod)
         case .menu(let id): handleMenu(id, key, mod)
         case .editor(let id): handleEditor(id, key, mod)
         case .yEquals: handleYEquals(key, mod)
@@ -61,7 +64,7 @@ extension CalculatorState {
             screen = .error("ERR:Error in Xmit")
             returnScreen = .home
         case .message, .about:
-            if key == .clear || key == .enter { screen = .home }
+            if key == .clear || key == .enter { screen = returnScreen; returnScreen = .home }
             else { _ = routeNavigation(resolve(key, mod)) }
         case .off, .error: break
         }
@@ -76,8 +79,11 @@ extension CalculatorState {
     }
 
     func resolve(_ key: KeyID, _ mod: Modifier) -> KeyAction {
-        if mod == .alpha || mod == .alphaLock, let a = Keymap.spec(key)?.alpha, let ch = alphaCharacter(a) {
-            return .insert(ch)
+        if mod == .alpha || mod == .alphaLock {
+            // alpha + f1…f4 open the FRAC / FUNC / MTRX / YVAR shortcut menus.
+            if let n = [KeyID.yEquals, .window, .zoom, .trace].firstIndex(of: key) { return .openMenu(.shortcut(n + 1)) }
+            if model == .evo, key == .stat { return .openMenu(.distr) }
+            if let a = Keymap.spec(key, model: model)?.alpha, let ch = alphaCharacter(a) { return .insert(ch) }
         }
         if mod == .second { return secondAction(key) }
         return primaryAction(key)
@@ -99,9 +105,13 @@ extension CalculatorState {
         case .negate: return .insert("⁻")
         case .plus: return .insert("+")
         case .minus: return .insert("−")
-        case .multiply: return .insert("×")
+        case .multiply: return .insert(model == .evo ? "⋅" : "×")   // the Evo shows a dot for multiplication
         case .divide: return .insert("÷")
         case .power: return .insert("^")
+        // TI-84 Evo keys: n/d template, x^□ exponent template, ◂▸ toggle.
+        case .fraction: return .insert("/")
+        case .expTemplate: return .insert("^")
+        case .toggle: return .toggle
         case .square: return .insert("²")
         case .inverse: return .insert("⁻¹")
         case .lparen: return .insert("(")
@@ -151,8 +161,16 @@ extension CalculatorState {
         case .math: return .openMenu(.test)
         case .apps: return .openMenu(.angle)
         case .prgm: return .openMenu(.draw)
-        case .vars: return .openMenu(.distr)
+        case .vars: return model == .evo ? .openMenu(.matrix) : .openMenu(.distr)
         case .inverse: return .openMenu(.matrix)
+        case .left: return model == .evo ? .lineStart : primaryAction(key)
+        case .right: return model == .evo ? .lineEnd : primaryAction(key)
+        case .up, .down: return model == .evo ? .none : primaryAction(key)   // 2nd+▲/▼ dim and brighten the screen
+        // TI-84 Evo: the 2nd legends keep their positions, so the shifted operator keys carry π e [ ] MEM.
+        case .fraction: return .openMenu(.angle)
+        case .expTemplate: return .insert("ˣ√")
+        case .toggle: return .openMenu(.mem)
+        case .clear: return model == .evo ? .undo : primaryAction(key)
         case .sin: return .insert("sin⁻¹(")
         case .cos: return .insert("cos⁻¹(")
         case .tan: return .insert("tan⁻¹(")
@@ -161,11 +179,11 @@ extension CalculatorState {
         case .comma: return .insert("ᴇ")
         case .lparen: return .insert("{")
         case .rparen: return .insert("}")
-        case .divide: return .insert("e")
+        case .divide: return .insert(model == .evo ? "π" : "e")
         case .log: return .insert("10^(")
         case .ln: return .insert("e^(")
-        case .multiply: return .insert("[")
-        case .minus: return .insert("]")
+        case .multiply: return .insert(model == .evo ? "e" : "[")
+        case .minus: return .insert(model == .evo ? "[" : "]")
         case .seven: return .insert("u")
         case .eight: return .insert("v")
         case .nine: return .insert("w")
@@ -176,7 +194,7 @@ extension CalculatorState {
         case .five: return .insert("L\(sub[5])")
         case .six: return .insert("L\(sub[6])")
         case .sto: return .rcl
-        case .plus: return .openMenu(.mem)
+        case .plus: return model == .evo ? .insert("]") : .openMenu(.mem)
         case .zero: return .openMenu(.catalog)
         case .dot: return .insert("i")
         case .negate: return .insert("Ans")
@@ -190,7 +208,7 @@ extension CalculatorState {
     func routeNavigation(_ action: KeyAction) -> Bool {
         switch action {
         case .openMenu(let id):
-            let from: Screen = (screen == .yEquals) ? .yEquals : (isProgramEditor ? screen : .home)
+            let from: Screen = (screen == .yEquals || screen == .solver) ? screen : (isProgramEditor ? screen : .home)
             leaveEditorsIfNeeded(keepY: true)
             openMenu(id, from: from)
         case .openEditor(let id):
@@ -243,6 +261,69 @@ extension CalculatorState {
         graphMode = .view
         screen = .home
         returnScreen = .home
+    }
+
+    // MARK: - TI-84 Evo home key, icon screen and Help
+
+    /// The home key shows the icon screen; pressed there it drops into the Calculator app.
+    func pressHome() {
+        if screen == .iconHome { screen = .home; returnScreen = .home; return }
+        leaveEditorsIfNeeded(keepY: false)
+        game = nil
+        graphMode = .view
+        screen = .iconHome
+        returnScreen = .home
+    }
+
+    private func handleIconHome(_ key: KeyID, _ mod: Modifier) {
+        let cols = HomeIcon.columns, count = HomeIcon.allCases.count
+        switch key {
+        case .left: iconIndex = (iconIndex - 1 + count) % count
+        case .right: iconIndex = (iconIndex + 1) % count
+        case .up: if iconIndex - cols >= 0 { iconIndex -= cols }
+        case .down: if iconIndex + cols < count { iconIndex += cols }
+        case .enter: openIcon(HomeIcon.allCases[iconIndex])
+        case .toggle: helpPage = 0; screen = .help(0)
+        case .clear: screen = .home
+        default:
+            // Typing on the icon screen goes straight into the Calculator app, as on the Evo.
+            let action = resolve(key, mod)
+            switch action {
+            case .insert: screen = .home; handleHome(key, mod)
+            default: _ = routeNavigation(action)
+            }
+        }
+    }
+
+    func openIcon(_ icon: HomeIcon) {
+        screen = .home
+        returnScreen = .home
+        switch icon {
+        case .calculator: break
+        case .functionEditor: enterYEquals()
+        case .listEditor: runCommand(.listEditor)
+        case .mode: openEditor(.mode)
+        case .numericSolver: openSolver()
+        case .polyRootFinder, .systemSolver: startApp(.plySmlt2)
+        case .finance: openEditor(.tvm)
+        case .transformation: startApp(.transfrm)
+        case .inequality: startApp(.inequalz)
+        case .linesConics: startApp(.conics)
+        case .python: startApp(.python)
+        case .tiBasic: openMenu(.prgm, from: .home)
+        case .help: helpPage = 0; screen = .help(0)
+        }
+    }
+
+    private func handleHelp(_ page: Int, _ key: KeyID, _ mod: Modifier) {
+        let n = HelpPages.pages.count
+        switch key {
+        case .right, .down, .enter: helpPage = (page + 1) % n; screen = .help(helpPage)
+        case .left, .up: helpPage = (page - 1 + n) % n; screen = .help(helpPage)
+        case .clear: screen = .home
+        case .toggle: screen = .iconHome
+        default: break
+        }
     }
 
     func openMenu(_ id: MenuID, from: Screen) {
@@ -350,6 +431,7 @@ extension CalculatorState {
         case .celSheet: game = CelSheetApp(store: store)
         case .cabriJr: game = CabriJrApp()
         case .vernier: game = VernierApp()
+        case .python: game = PythonApp(store: store)
         }
         screen = .app(id)
         returnScreen = .home
@@ -399,12 +481,18 @@ extension CalculatorState {
             else { evaluate() }
         case .clear:
             // Clearing the screen also forgets Ans, so a fresh screen really starts from 0.
-            if entry.isEmpty { history = []; store.ans = .num(0) } else { entry = []; cursor = 0 }
+            if entry.isEmpty { history = []; store.ans = .num(0) } else { undoBuffer = entry; entry = []; cursor = 0 }
             historyIndex = nil
+        case .undo:
+            // TI-84 Evo 2nd+clear: the last cleared entry comes back at the cursor.
+            if !undoBuffer.isEmpty { insert(String(undoBuffer)) }
+        case .toggle: toggleLastAnswer()
         case .del: deleteAtCursor()
         case .ins: insertMode.toggle()
         case .left: moveCursorLeft()
         case .right: moveCursorRight()
+        case .lineStart: cursor = 0
+        case .lineEnd: cursor = entry.count
         case .up: selectHistory(step: -1)
         case .down: break
         case .rcl: rclPending = true
@@ -494,8 +582,15 @@ extension CalculatorState {
         case .clear: closeMenu()
         case .enter:
             if menuRow < items.count { select(items[menuRow]) }
+        case .toggle:
+            // TI-84 Evo ◂▸ in a menu: syntax help for the highlighted function; CLEAR comes back to the menu.
+            if menuRow < items.count, let help = syntaxHelp(for: items[menuRow]) {
+                let back = screen
+                screen = .message(help)
+                returnScreen = back
+            }
         default:
-            if id == .catalog, let a = Keymap.spec(key)?.alpha, let ch = alphaCharacter(a), ch != " " {
+            if id == .catalog, let a = Keymap.spec(key, model: model)?.alpha, let ch = alphaCharacter(a), ch != " " {
                 if let idx = items.firstIndex(where: { $0.label.lowercased().hasPrefix(ch.lowercased()) }) { menuRow = idx }
                 return
             }
@@ -525,6 +620,10 @@ extension CalculatorState {
             closeMenu()
             // Stacked templates only render on the home screen; other editors get the flat form.
             if screen == .home { insert(mathPrintToken(s)) }
+            else if screen == .solver, solverStage == 1 {
+                if !editorTyping { editorBuffer = []; editorTyping = true }
+                editorBuffer += Array(MathPrint.classicInsert(s))
+            }
             else if screen == .yEquals || screen == .solver || isProgramEditor { insert(MathPrint.classicInsert(s)) }
             else { screen = .home; insert(mathPrintToken(s)) }
         case .submenu(let id):
@@ -573,7 +672,8 @@ extension CalculatorState {
         case .about:
             leaveForCommand()
             screen = .about; returnScreen = .home
-        case .oneVar, .twoVar, .linReg, .linRegAlt, .quadReg, .cubicReg, .quartReg, .expReg, .lnReg, .pwrReg, .medMed, .logistic, .sinReg:
+        case .oneVar, .twoVar, .linReg, .linRegAlt, .quadReg, .cubicReg, .quartReg, .expReg, .lnReg, .pwrReg, .medMed, .logistic, .sinReg,
+             .propReg, .recipReg, .eBaseReg:
             runStatCalc(c)
         case .listEditor:
             leaveForCommand()
@@ -711,6 +811,26 @@ extension CalculatorState {
                 lines.append("SinReg"); lines.append(" y=a*sin(bx+c)+d")
                 pairs = [("a", r.a), ("b", r.b), ("c", r.c), ("d", r.d)]
                 store.regEQ = "\(fmt(r.a))sin(\(fmt(r.b))X+\(fmt(r.c)))+\(fmt(r.d))"
+            case .propReg:
+                // Least squares through the origin: a = Σxy / Σx².
+                guard x.count == y.count, !x.isEmpty else { throw CalcError.dimMismatch }
+                let sxx = x.reduce(0) { $0 + $1 * $1 }, sxy = zip(x, y).reduce(0) { $0 + $1.0 * $1.1 }
+                guard sxx > 0 else { throw CalcError.domain }
+                let a = sxy / sxx
+                lines.append("PropReg"); lines.append(" y=ax")
+                pairs = [("a", a)]
+                store.regEQ = "\(fmt(a))X"
+            case .recipReg:
+                let r = try Stats.linReg(x.map { 1 / $0 }, y)
+                lines.append("RecipReg"); lines.append(" y=a+b/x")
+                pairs = [("a", r.b), ("b", r.a), ("r²", r.r * r.r), ("r", r.r)]
+                store.regEQ = "\(fmt(r.b))+\(fmt(r.a))÷X"
+            case .eBaseReg:
+                let r = try Stats.linReg(x, y.map { log($0) })
+                lines.append("eBASEReg"); lines.append(" y=ae^(bx)")
+                let a = exp(r.b)
+                pairs = [("a", a), ("b", r.a), ("r²", r.r * r.r), ("r", r.r)]
+                store.regEQ = "\(fmt(a))e^(\(fmt(r.a))X)"
             default:
                 return
             }
@@ -845,6 +965,15 @@ extension CalculatorState {
         case .clear: entry = []; cursor = 0
         case .del: deleteAtCursor()
         case .ins: insertMode.toggle()
+        case .lineStart: cursor = 0
+        case .lineEnd: cursor = entry.count
+        case .toggle:
+            // TI-84 Evo ◂▸ in the Y= editor: the whole definition on its own screen.
+            let key = yKeys[min(yRow, yKeys.count - 1)]
+            let lines = [Self.yLabel(key)] + Self.chunk(String(entry), Self.columns)
+            let back = screen
+            screen = .message(Array(lines.prefix(10)))
+            returnScreen = back
         case .left:
             if cursor == 0 {
                 // Cursor on the "=" toggles the function on/off, like the real Y= screen.
@@ -1017,8 +1146,15 @@ extension CalculatorState {
             calcResult = nil
             graphBuffer = []
             let step = store.graphType == .function ? xPixel : pstep
+            let previous = traceX
             traceX += (action == .left ? -step : step)
             traceX = min(pmax, max(pmin, traceX))
+            // TI-84 Evo Points of Interest: the cursor snaps to a zero, extremum, y-intercept or intersection it steps over.
+            if store.evo, store.options["poi", default: 0] == 0, graphMode == .trace,
+               let p = Graphing.pointOfInterest(traceFn, from: previous, to: traceX, store: store) {
+                traceX = p.x
+                calcResult = CalcResult(label: p.label, x: p.x, y: p.y)
+            }
         case .up, .down:
             guard let i = defined.firstIndex(of: traceFn), !defined.isEmpty else { return }
             if graphMode == .view { graphMode = .trace }
@@ -1182,6 +1318,10 @@ extension CalculatorState {
             case .ins: insertMode.toggle()
             case .left: moveCursorLeft()
             case .right: moveCursorRight()
+            case .lineStart: cursor = 0
+            case .lineEnd: cursor = entry.count
+            case .openMenu(let id):
+                openMenu(id, from: .solver)   // the equation stays on screen behind the menu
             case .clear:
                 if entry.isEmpty { leaveSolver() } else { entry = []; cursor = 0 }
             case .enter, .down:
@@ -1200,10 +1340,8 @@ extension CalculatorState {
         let rowCount = vars.count + 1   // variable rows + bound row
         switch action {
         case .insert(let s):
-            if solverRow < vars.count {
-                if !editorTyping { editorBuffer = []; editorTyping = true }
-                editorBuffer += Array(s)
-            }
+            if !editorTyping { editorBuffer = []; editorTyping = true }
+            editorBuffer += Array(s)
         case .del:
             if editorTyping, !editorBuffer.isEmpty { editorBuffer.removeLast() }
         case .up:
@@ -1214,23 +1352,48 @@ extension CalculatorState {
             commitSolverValue()
             solverRow = min(rowCount - 1, solverRow + 1)
         case .enter:
+            // alpha+ENTER solves on the CE; the Evo has no SOLVE legend, so ENTER solves a row you are
+            // not typing into (typing a value and pressing ENTER still just stores the guess).
+            let wasTyping = editorTyping
             commitSolverValue()
-            if mod == .alpha || mod == .alphaLock, solverRow < vars.count {
-                let name = vars[solverRow]
-                do {
-                    let x = try Solver.solve(store.solverEqn, for: name, guess: store.reals[name] ?? 0, lo: -1e99, hi: 1e99, store: store)
-                    store.reals[name] = x
-                    solverSolved = name
-                } catch let e as CalcError { fail(e) } catch { fail(.syntax) }
+            let solveNow = (mod == .alpha || mod == .alphaLock) || (model == .evo && !wasTyping)
+            if solveNow, solverRow < vars.count {
+                solveSolver(for: vars[solverRow])
             } else {
                 solverRow = min(rowCount - 1, solverRow + 1)
             }
         case .clear:
             if editorTyping { editorBuffer = []; editorTyping = false } else { leaveSolver() }
+        case .openMenu(let id):
+            openMenu(id, from: .solver)
         default:
             commitSolverValue()
             if routeNavigation(action) { entry = homeEntryBackup; cursor = min(homeCursorBackup, entry.count) }
         }
+    }
+
+    /// Solves the equation for one variable and marks the row with the CE's ■.
+    private func solveSolver(for name: String) {
+        do {
+            let x = try Solver.solve(store.solverEqn, for: name,
+                                     guess: store.reals[name] ?? 0,
+                                     lo: solverBounds.lo, hi: solverBounds.hi, store: store)
+            store.reals[name] = x
+            solverSolved = name
+        } catch let e as CalcError { fail(e) } catch { fail(.syntax) }
+    }
+
+    /// The search interval, edited on the solver's bound row.
+    var solverBounds: (lo: Double, hi: Double) {
+        (store.numbers["solverLo"] ?? -Solver.defaultBound, store.numbers["solverHi"] ?? Solver.defaultBound)
+    }
+
+    /// Text a solver row shows when it is not being typed into.
+    func solverRowText(_ row: Int) -> String {
+        let vars = solverVariables
+        if row < vars.count { return ResultFormatter.number(store.reals[vars[row]] ?? 0, notation: store.notation, fixed: store.fixedDigits) }
+        let b = solverBounds
+        return "{" + ResultFormatter.number(b.lo) + "," + ResultFormatter.number(b.hi) + "}"
     }
 
     func commitSolverValue() {
@@ -1239,8 +1402,20 @@ extension CalculatorState {
         editorTyping = false
         editorBuffer = []
         let vars = solverVariables
-        guard !text.isEmpty, solverRow < vars.count else { return }
-        do { store.reals[vars[solverRow]] = try Evaluator.number(text, ctx: EvalContext(store: store)); solverSolved = nil }
+        guard !text.isEmpty else { return }
+        do {
+            if solverRow < vars.count {
+                store.reals[vars[solverRow]] = try Evaluator.number(text, ctx: EvalContext(store: store))
+                solverSolved = nil
+            } else {
+                // bound={lo,hi}
+                let v = try Evaluator.evaluate(text, ctx: EvalContext(store: store))
+                let l = try v.listValue()
+                guard l.count == 2, l[0] < l[1] else { throw CalcError.invalidDim }
+                store.numbers["solverLo"] = l[0]
+                store.numbers["solverHi"] = l[1]
+            }
+        }
         catch let e as CalcError { fail(e) } catch { fail(.syntax) }
     }
 

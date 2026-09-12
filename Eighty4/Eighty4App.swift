@@ -15,24 +15,34 @@ struct Eighty4App: App {
     /// Launch arguments used for screenshot verification:
     ///   -demo <name>     scripts key presses (see DemoScripts) after wiping saved memory
     ///   -shell <name>    forces a shell colorway (e.g. radicalRed)
+    ///   -model <ce|evo>  opens that calculator instead of the app homepage
+    ///   -home            forces the app homepage
     private static func makeState() -> CalculatorState {
         let args = CommandLine.arguments
         if let i = args.firstIndex(of: "-demo") {
             VariableStore.wipe()
             let s = CalculatorState()
+            s.open(modelArg(args) ?? s.model)
             if let c = shellArg(args) { s.shell = c }
             let name = i + 1 < args.count ? args[i + 1] : "home"
             DemoScripts.run(name, on: s)
             return s
         }
         let s = CalculatorState()
+        if let m = modelArg(args) { s.open(m) }
         if let c = shellArg(args) { s.shell = c }
+        if args.contains("-home") { s.atHomepage = true }
         return s
     }
 
     private static func shellArg(_ args: [String]) -> ShellColor? {
         guard let i = args.firstIndex(of: "-shell"), i + 1 < args.count else { return nil }
         return ShellColor(rawValue: args[i + 1])
+    }
+
+    private static func modelArg(_ args: [String]) -> CalcModel? {
+        guard let i = args.firstIndex(of: "-model"), i + 1 < args.count else { return nil }
+        return CalcModel(rawValue: args[i + 1])
     }
 }
 
@@ -42,7 +52,8 @@ enum DemoScripts {
         let yeq: [KeyID] = [.yEquals, .xtn, .square, .minus, .four, .down, .two, .xtn, .plus, .one]
         switch name {
         case "home":
-            keys([.two, .plus, .three, .multiply, .four, .enter, .second, .square, .two, .rparen, .enter, .one, .divide, .three, .enter, .second, .negate, .power, .two, .enter, .five, .second, .math, .enter, .two, .enter, .sin, .second, .power, .divide, .two, .second])
+            // MathPrint: ▶ leaves the √ and ^ templates.
+            keys([.two, .plus, .three, .multiply, .four, .enter, .second, .square, .two, .right, .enter, .one, .divide, .three, .enter, .second, .negate, .power, .two, .right, .enter, .five, .second, .math, .enter, .two, .enter, .sin, .second, .power, .divide, .two, .second])
         case "math": keys([.math])
         case "mathnum": keys([.math, .right])
         case "mode": keys([.mode, .down, .down, .down])
@@ -139,6 +150,29 @@ enum DemoScripts {
                   .math, .eight, .xtn, .right, .xtn, .square, .right, .three, .enter])
         case "mathprintedit2":
             keys([.two, .power, .three, .right, .plus, .second, .square])
+        // TI-84 Evo demos (launch with -model evo).
+        case "evoicons": keys([.right, .right])
+        case "evocalc":
+            // 7÷3 then ◂▸, 2^5, n/d 3/8 + 1/8, log₂(8)
+            keys([.on, .seven, .divide, .three, .enter, .toggle, .two, .expTemplate, .five, .enter,
+                  .fraction, .three, .right, .eight, .right, .plus, .fraction, .one, .right, .eight, .enter,
+                  .log, .two, .right, .eight, .enter])
+        case "evograph":
+            keys([.on, .yEquals, .xtn, .square, .minus, .two, .down, .xtn, .graph, .trace] + Array(repeating: .right, count: 30))
+        case "evohelp": keys([.toggle])
+        case "evopython":
+            keys([.on, .yEquals, .clear, .on, .down, .down, .right, .right, .right, .enter, .two, .expTemplate, .one, .zero, .enter, .seven, .divide, .two, .enter])
+        case "evomode": keys([.on, .mode, .down, .down, .down, .right, .right])
+        case "evostat": keys([.on, .stat, .right])
+        case "evosolver":
+            // Numeric Solver: 2^X=X², guess 5, ENTER solves → X=4
+            keys([.down, .enter, .two, .expTemplate, .xtn, .right, .second, .math, .enter, .xtn, .square, .enter,
+                  .five, .enter, .up, .enter])
+        case "evoicons2": keys([.down, .down, .down])
+        case "solver2":
+            // CE: 2X+3=11 solved from a guess of 5
+            keys([.math, .up, .enter, .two, .xtn, .plus, .three, .second, .math, .enter, .one, .one, .enter,
+                  .five, .enter, .up, .alpha, .enter])
         case "cmatrix":
             // [[1,i][2,3]]→[A], then [A]², det([A]), [A]⁻¹
             keys([.second, .multiply, .second, .multiply, .one, .comma, .second, .dot, .second, .minus, .second, .multiply, .two, .comma, .three, .second, .minus, .second, .minus, .sto, .second, .inverse, .enter, .enter,

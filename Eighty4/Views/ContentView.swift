@@ -5,7 +5,16 @@ struct ContentView: View {
 
     var body: some View {
         @Bindable var state = state
-        GeometryReader { geo in
+        if state.atHomepage {
+            HomepageView()
+        } else {
+            calculator
+        }
+    }
+
+    private var calculator: some View {
+        @Bindable var state = state
+        return GeometryReader { geo in
             let scale = min(geo.size.width / Layout.bodyW, geo.size.height / Layout.bodyH) * 0.985
             ZStack {
                 LinearGradient(
@@ -23,9 +32,25 @@ struct ContentView: View {
                     .frame(width: Layout.bodyW * scale, height: Layout.bodyH * scale)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                // Shell color picker button (also reachable by long-pressing the wordmark).
+                // Back to the app homepage, and the shell/model picker.
                 VStack {
                     HStack {
+                        Button {
+                            Haptics.tap()
+                            state.atHomepage = true
+                        } label: {
+                            ZStack {
+                                Circle().fill(Color.white.opacity(0.12))
+                                Circle().stroke(Color.white.opacity(0.5), lineWidth: 1)
+                                Image(systemName: "square.grid.2x2.fill")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(.white)
+                            }
+                            .frame(width: 32, height: 32)
+                        }
+                        .accessibilityIdentifier("appHome")
+                        .padding(.leading, 14)
+                        .padding(.top, 2)
                         Spacer()
                         Button {
                             Haptics.tap()

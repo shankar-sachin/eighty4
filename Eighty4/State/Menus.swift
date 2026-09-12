@@ -4,6 +4,8 @@ enum Command: Equatable {
     case zoom(ZoomKind)
     case clearEntries, about
     case oneVar, twoVar, linReg, linRegAlt, quadReg, cubicReg, quartReg, expReg, lnReg, pwrReg, medMed, logistic, sinReg
+    /// TI-84 Evo regressions: y=ax, y=a+b/x, y=ae^(bx).
+    case propReg, recipReg, eBaseReg
     case listEditor, matrixEdit(String)
     case calc(CalcOp), trace
     case linkSend, linkReceive
@@ -77,6 +79,15 @@ enum Menus {
             ])
         case .angle:
             return MenuDef(tabs: [MenuTab(title: "ANGLE", items: [ins("°"), ins("'"), ins("ʳ"), ins("▶DMS"), ins("R▶Pr("), ins("R▶Pθ("), ins("P▶Rx("), ins("P▶Ry(")])])
+        case .distr where store.evo:
+            // The Evo groups the distributions by family, with the DRAW command in its family's tab.
+            return MenuDef(tabs: [
+                MenuTab(title: "NORMAL", items: [ins("normalpdf("), ins("normalcdf("), ins("invNorm("), ins("ShadeNorm(")]),
+                MenuTab(title: "t", items: [ins("tpdf("), ins("tcdf("), ins("invT("), ins("Shade_t(")]),
+                MenuTab(title: "χ²", items: [ins("χ²pdf("), ins("χ²cdf("), ins("Shadeχ²(")]),
+                MenuTab(title: "F", items: [ins("Fpdf("), ins("Fcdf("), ins("ShadeF(")]),
+                MenuTab(title: "DISCRETE", items: [ins("binompdf("), ins("binomcdf("), ins("invBinom("), ins("poissonpdf("), ins("poissoncdf("), ins("geometpdf("), ins("geometcdf(")]),
+            ])
         case .distr:
             return MenuDef(tabs: [
                 MenuTab(title: "DISTR", items: [ins("normalpdf("), ins("normalcdf("), ins("invNorm("), ins("invT("), ins("tpdf("), ins("tcdf("), ins("χ²pdf("), ins("χ²cdf("), ins("Fpdf("), ins("Fcdf("), ins("binompdf("), ins("binomcdf("), ins("invBinom("), ins("poissonpdf("), ins("poissoncdf("), ins("geometpdf("), ins("geometcdf(")]),
@@ -139,11 +150,29 @@ enum Menus {
                 MenuTab(title: "EDIT", items: letters.map { cmd(nameLabel($0), .matrixEdit($0)) }),
             ])
         case .stat:
+            let edit = MenuTab(title: "EDIT", items: [cmd("Edit…", .listEditor), ins("SortA("), ins("SortD("), ins("ClrList", "ClrList "), ins("SetUpEditor")])
+            var calc = [cmd("1-Var Stats", .oneVar), cmd("2-Var Stats", .twoVar), cmd("Med-Med", .medMed), cmd("LinReg(ax+b)", .linReg), cmd("QuadReg", .quadReg), cmd("CubicReg", .cubicReg), cmd("QuartReg", .quartReg), cmd("LinReg(a+bx)", .linRegAlt), cmd("LnReg", .lnReg), cmd("ExpReg", .expReg), cmd("PwrReg", .pwrReg), cmd("Logistic", .logistic), cmd("SinReg", .sinReg)]
+            if store.evo {
+                // The Evo adds three regressions and splits TESTS into INTERVALS and TESTS.
+                calc += [cmd("PropReg", .propReg), cmd("RecipReg", .recipReg), cmd("eBASEReg", .eBaseReg)]
+                let intervals = StatTest.allCases.filter(\.isInterval).map { cmd($0.title + "…", .statTest($0)) }
+                let tests = StatTest.allCases.filter { !$0.isInterval }.map { cmd($0.title + "…", .statTest($0)) } + [ins("ANOVA(")]
+                return MenuDef(tabs: [edit, MenuTab(title: "CALC", items: calc), MenuTab(title: "INTERVALS", items: intervals), MenuTab(title: "TESTS", items: tests)])
+            }
             return MenuDef(tabs: [
-                MenuTab(title: "EDIT", items: [cmd("Edit…", .listEditor), ins("SortA("), ins("SortD("), ins("ClrList", "ClrList "), ins("SetUpEditor")]),
-                MenuTab(title: "CALC", items: [cmd("1-Var Stats", .oneVar), cmd("2-Var Stats", .twoVar), cmd("Med-Med", .medMed), cmd("LinReg(ax+b)", .linReg), cmd("QuadReg", .quadReg), cmd("CubicReg", .cubicReg), cmd("QuartReg", .quartReg), cmd("LinReg(a+bx)", .linRegAlt), cmd("LnReg", .lnReg), cmd("ExpReg", .expReg), cmd("PwrReg", .pwrReg), cmd("Logistic", .logistic), cmd("SinReg", .sinReg)]),
+                edit,
+                MenuTab(title: "CALC", items: calc),
                 MenuTab(title: "TESTS", items: StatTest.allCases.map { cmd($0.title + "…", .statTest($0)) } + [ins("ANOVA(")]),
             ])
+        case .shortcut(let n):
+            // alpha + f1…f4 shortcut menus (FRAC, FUNC, MTRX, YVAR).
+            let mp = store.mathPrint
+            switch n {
+            case 1: return MenuDef(tabs: [MenuTab(title: "FRAC", items: [ins("n/d", mp ? MathPrint.fractionTemplate : "/"), ins("Un/d", mp ? MathPrint.mixedTemplate : "_"), ins("▶n/d◀▶Un/d"), ins("▶F◀▶D")])])
+            case 2: return MenuDef(tabs: [MenuTab(title: "FUNC", items: [ins("abs("), ins("√("), ins("ˣ√"), ins("logBASE("), ins("Σ("), ins("nDeriv("), ins("fnInt("), ins("e^("), ins("10^(")])])
+            case 3: return MenuDef(tabs: [MenuTab(title: "MTRX", items: [ins("["), ins("]"), ins("det("), ins("ᵀ"), ins("dim("), ins("identity("), ins("augment("), ins("ref("), ins("rref(")])])
+            default: return MenuDef(tabs: [MenuTab(title: "YVAR", items: (0...9).map { i in let k = i == 9 ? 0 : i + 1; return ins("Y\(subs[k])") })])
+            }
         case .draw:
             return MenuDef(tabs: [
                 MenuTab(title: "DRAW", items: [cmd("ClrDraw", .clrDraw), ins("Line("), ins("Horizontal", "Horizontal "), ins("Vertical", "Vertical "), ins("Tangent("), ins("DrawF", "DrawF "), ins("Shade("), ins("DrawInv", "DrawInv "), ins("Circle("), ins("Text("), cmd("Pen", .pen)]),

@@ -13,6 +13,9 @@ enum LCD {
     static var bodyHeight: CGFloat { height - statusH }
     static let font = Font.system(size: 17, weight: .regular, design: .monospaced)
     static let smallFont = Font.system(size: 12, weight: .regular, design: .monospaced)
+    /// TI-84 Evo answer colour and cursor colour.
+    static let evoGreen = Color(hex: 0x1B7A3A)
+    static let evoBlue = Color(hex: 0x1F6FE0)
 }
 
 /// A run of character cells. `inverted` draws white-on-black, `outlined` draws a cursor box.
@@ -58,6 +61,8 @@ struct BlinkingCursor: View {
     var underline = false
     /// Exact cell position (x in cells, y in rows) when the cursor sits beside a stacked fraction.
     var at: (x: Double, y: Double)? = nil
+    /// TI-84 Evo: a thin blue insertion bar instead of the CE's block cursor.
+    var bar = false
 
     var body: some View {
         let x = at.map { $0.x } ?? Double(col)
@@ -65,13 +70,23 @@ struct BlinkingCursor: View {
         TimelineView(.periodic(from: .now, by: 0.5)) { ctx in
             let on = Int(ctx.date.timeIntervalSinceReferenceDate * 2) % 2 == 0
             ZStack {
-                if underline && glyph == nil {
+                if bar {
+                    HStack(spacing: 0) {
+                        Rectangle().fill(LCD.evoBlue).frame(width: 2.5)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.vertical, 2)
+                } else if underline && glyph == nil {
                     Rectangle().fill(Color.black).frame(height: 3).offset(y: LCD.lineH / 2 - 2)
                 } else {
                     Rectangle().fill(Color.black)
                 }
                 if let g = glyph {
-                    Text(g).font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
+                    if bar {
+                        Text(g).font(.system(size: 11, weight: .bold)).foregroundStyle(LCD.evoBlue).offset(x: 3)
+                    } else {
+                        Text(g).font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
+                    }
                 }
             }
             .frame(width: LCD.cellW, height: LCD.lineH)
@@ -137,9 +152,10 @@ struct MathLineView: View {
     let row: Int
     var trailing = false
     var inverted = false
+    var color: Color = .black
 
     var body: some View {
-        let fg: Color = inverted ? .white : .black
+        let fg: Color = inverted ? .white : color
         ZStack(alignment: .topLeading) {
             ForEach(Array(layout.rows.enumerated()), id: \.offset) { i, r in
                 let top = CGFloat(row + layout.rowStart(i)) * LCD.lineH
@@ -201,7 +217,65 @@ struct BraceShape: Shape {
 struct StatusBarView: View {
     @Environment(CalculatorState.self) private var state
 
+    /// TI-84 Evo: the header names the app you are in, the way the real one does.
+    private var appTitle: String {
+        switch state.screen {
+        case .home: return "CALCULATOR"
+        case .iconHome: return HomeIcon.allCases[min(state.iconIndex, HomeIcon.allCases.count - 1)].title.uppercased()
+        case .yEquals: return "FUNCTION EDITOR"
+        case .listEditor: return "LIST EDITOR"
+        case .matrixEditor(let n): return "MATRIX [\(n)]"
+        case .editor(.mode): return "MODE SETTINGS"
+        case .editor(.window): return "WINDOW"
+        case .editor(.format): return "FORMAT"
+        case .editor(.tblset): return "TABLE SETUP"
+        case .editor(.tvm): return "FINANCE"
+        case .editor: return "SETTINGS"
+        case .graph: return "GRAPH"
+        case .table: return "TABLE"
+        case .solver: return "NUMERIC SOLVER"
+        case .menu: return "MENU"
+        case .help: return "HELP"
+        case .app(.python): return "PYTHON"
+        case .app(.plySmlt2): return "POLY ROOT FINDER"
+        case .app: return "APP"
+        case .programEditor(let n): return "PROGRAM:\(n)"
+        case .programName, .programMenu, .groupName: return "PROGRAM"
+        case .about: return "ABOUT"
+        default: return "CALCULATOR"
+        }
+    }
+
     var body: some View {
+        if state.model == .evo { evoBar } else { ceBar }
+    }
+
+    /// TI-84 Evo: home icon, the app's name in blue, the modifier flag and the battery.
+    private var evoBar: some View {
+        ZStack {
+            Color.white
+            Text(appTitle)
+                .font(.system(size: 10.5, weight: .heavy, design: .monospaced))
+                .foregroundStyle(LCD.evoBlue)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .padding(.horizontal, 44)
+            HStack(spacing: 6) {
+                Image(systemName: "house.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(LCD.evoBlue)
+                Spacer()
+                modifierFlag
+                battery
+            }
+            .padding(.horizontal, 4)
+        }
+        .frame(width: LCD.width, height: LCD.statusH)
+        .overlay(alignment: .bottom) { Rectangle().fill(Color(hex: 0xCFD6E2)).frame(height: 1) }
+    }
+
+    /// TI-84 Plus CE: the MODE summary line.
+    private var ceBar: some View {
         HStack(spacing: 6) {
             Text(state.store.statusText)
                 .font(.system(size: 8.5, weight: .semibold))
@@ -209,19 +283,24 @@ struct StatusBarView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Spacer()
-            switch state.modifier {
-            case .second:
-                Text("↑").font(.system(size: 11, weight: .bold)).foregroundStyle(Color(hex: 0x2F6EC0))
-            case .alpha, .alphaLock:
-                Text("A").font(.system(size: 11, weight: .bold)).foregroundStyle(Color(hex: 0x3B8A2A))
-            case .none:
-                EmptyView()
-            }
+            modifierFlag
             battery
         }
         .padding(.horizontal, 4)
         .frame(width: LCD.width, height: LCD.statusH)
         .background(Color(hex: 0xD9D9D9))
+    }
+
+    @ViewBuilder
+    private var modifierFlag: some View {
+        switch state.modifier {
+        case .second:
+            Text("↑").font(.system(size: 11, weight: .bold)).foregroundStyle(Color(hex: 0x2F6EC0))
+        case .alpha, .alphaLock:
+            Text("A").font(.system(size: 11, weight: .bold)).foregroundStyle(Color(hex: 0x3B8A2A))
+        case .none:
+            EmptyView()
+        }
     }
 
     private var battery: some View {
@@ -287,6 +366,8 @@ struct LCDView: View {
         case .programName: NameEntryView(title: "PROGRAM")
         case .groupName: NameEntryView(title: "GROUP")
         case .programMenu(let title, let items): ProgramMenuView(title: title, items: items)
+        case .iconHome: IconHomeView()
+        case .help(let page): HelpScreenView(page: page)
         case .off: EmptyView()
         }
     }
@@ -299,12 +380,15 @@ struct HomeScreenView: View {
         let placed = state.placedLines
         let cursor = state.cursorPosition
         let selected = state.historySelection
+        let evo = state.model == .evo
         ZStack(alignment: .topLeading) {
             ForEach(Array(placed.enumerated()), id: \.offset) { _, p in
-                MathLineView(layout: p.layout, row: p.row, trailing: p.line.trailing, inverted: selected != nil && p.line.group == selected)
+                // The Evo prints answers in green and inputs in black.
+                MathLineView(layout: p.layout, row: p.row, trailing: p.line.trailing, inverted: selected != nil && p.line.group == selected,
+                             color: evo && p.line.trailing ? LCD.evoGreen : .black)
             }
             if selected == nil, cursor.row >= 0, cursor.row < LCD.rows {
-                BlinkingCursor(row: cursor.row, col: cursor.col, glyph: state.cursorGlyph, underline: state.insertMode, at: (cursor.x, cursor.y))
+                BlinkingCursor(row: cursor.row, col: cursor.col, glyph: state.cursorGlyph, underline: state.insertMode, at: (cursor.x, cursor.y), bar: evo)
             }
         }
     }

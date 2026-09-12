@@ -36,7 +36,7 @@ final class CalculatorState {
 
     static let columns = 26
     static let visibleRows = 10
-    static let version = "1.0.1"
+    static let version = "1.1.0"
 
     let store = VariableStore()
 
@@ -65,8 +65,29 @@ final class CalculatorState {
     // Shell / UI
     var showShellPicker = false
     var shell: ShellColor {
-        didSet { UserDefaults.standard.set(shell.rawValue, forKey: "shell") }
+        didSet { if VariableStore.persistenceEnabled { UserDefaults.standard.set(shell.rawValue, forKey: "shell") } }
     }
+    /// Which calculator the app is being (TI-84 Plus CE or TI-84 Evo); persisted like the shell.
+    var model: CalcModel {
+        didSet {
+            guard model != oldValue else { return }
+            if VariableStore.persistenceEnabled { UserDefaults.standard.set(model.rawValue, forKey: "model") }
+            store.evo = model == .evo
+            if !model.shells.contains(shell) { shell = model.defaultShell }
+            applyModelDefaults()
+            game = nil
+            graphMode = .view
+            screen = model == .evo ? .iconHome : .home
+            returnScreen = .home
+        }
+    }
+    /// TI-84 Evo: the entry wiped by CLEAR, restored by 2nd+clear (Undo).
+    var undoBuffer: [Character] = []
+    /// TI-84 Evo icon home screen selection and Help page.
+    var iconIndex = 0
+    var helpPage = 0
+    /// The app's own home screen, where the calculator is chosen. Shown until one is opened.
+    var atHomepage = true
 
     // Menus
     var menuTab = 0
@@ -131,8 +152,85 @@ final class CalculatorState {
     var game: (any Game)? = nil
 
     init() {
-        let raw = UserDefaults.standard.string(forKey: "shell") ?? ""
-        shell = ShellColor(rawValue: raw) ?? .black
+        let persisted = VariableStore.persistenceEnabled
+        let raw = persisted ? UserDefaults.standard.string(forKey: "shell") ?? "" : ""
+        let m = persisted ? CalcModel(rawValue: UserDefaults.standard.string(forKey: "model") ?? "") ?? .ce : .ce
+        model = m
+        shell = ShellColor(rawValue: raw).flatMap { $0.model == m ? $0 : nil } ?? m.defaultShell
+        store.evo = m == .evo
+        if m == .evo { screen = .iconHome }
+    }
+
+    /// Opens a calculator from the app homepage.
+    func open(_ m: CalcModel) {
+        if model == m {
+            // Already set up (first launch, or coming back to the same one): just show it.
+            screen = m == .evo ? .iconHome : .home
+            returnScreen = .home
+        } else {
+            model = m
+        }
+        atHomepage = false
+    }
+
+    /// The TI-84 Evo boots with the decimal window; the CE with the standard one.
+    private func applyModelDefaults() {
+        let w = GraphWindow(store: store)
+        let standard = w.xmin == -10 && w.xmax == 10 && w.ymin == -10 && w.ymax == 10
+        let decimal = w.xmin == -6.6 && w.xmax == 6.6 && w.ymin == -4.1 && w.ymax == 4.1
+        if model == .evo, standard { Graphing.setWindow(store, -6.6, 6.6, 1, -4.1, 4.1, 1) }
+        if model == .ce, decimal { Graphing.setWindow(store, -10, 10, 1, -10, 10, 1) }
+    }
+
+    // MARK: - TI-84 Evo toggle key
+
+    /// Continued-fraction approximation with a small denominator, or nil when `x` is not a neat fraction.
+    static func rational(_ x: Double, maxDenominator: Int = 10000) -> (Int, Int)? {
+        guard x.isFinite, abs(x) < 1e9, x.rounded() != x else { return nil }
+        var h0 = 1, h1 = 0, k0 = 0, k1 = 1
+        var v = abs(x)
+        for _ in 0..<40 {
+            let a = Int(v.rounded(.down))
+            let h = a * h0 + h1, k = a * k0 + k1
+            if k > maxDenominator { break }
+            (h1, h0, k1, k0) = (h0, h, k0, k)
+            if abs(Double(h0) / Double(k0) - abs(x)) < 1e-10 * max(1, abs(x)) { return (x < 0 ? -h0 : h0, k0) }
+            let frac = v - Double(a)
+            if frac < 1e-12 { break }
+            v = 1 / frac
+        }
+        return nil
+    }
+
+    /// ◂▸ on the home screen: shows the newest answer the other way round (fraction ↔ decimal).
+    func toggleLastAnswer() {
+        guard let idx = history.lastIndex(where: { $0.trailing && $0.value != nil }), let v = history[idx].value else { return }
+        let toggled: Value?
+        switch v {
+        case .fraction(let n, let d): toggled = .num(Double(n) / Double(d))
+        case .num(let x): toggled = Self.rational(x).map { .fraction($0.0, $0.1) }
+        default: toggled = nil
+        }
+        guard let t = toggled else { return }
+        let text = ResultFormatter.format(t, store: store, mathPrint: store.mathPrint)
+        var line = history[idx]
+        line.text = text
+        line.value = t
+        line.source = text
+        line.rows = MathPrint.containsTemplate(text) ? MathLayout.layout(text, width: Self.columns).totalRows : 1
+        history[idx] = line
+    }
+
+    /// ◂▸ in a menu: the syntax of the highlighted function, as the Evo's toggle-key help.
+    func syntaxHelp(for item: MenuItem) -> [String]? {
+        guard case .insert(let s) = item.action else { return nil }
+        let name = s.hasSuffix("(") ? String(s.dropLast()) : s
+        guard let f = Functions.table[name] else { return nil }
+        let args: String
+        if f.maxArgs > 6 { args = "value1,value2,…" }
+        else { args = (0..<f.maxArgs).map { i in i < f.minArgs ? "value\(i + 1)" : "[value\(i + 1)]" }.joined(separator: ",") }
+        let count = f.minArgs == f.maxArgs ? "\(f.minArgs)" : (f.maxArgs > 6 ? "\(f.minArgs) or more" : "\(f.minArgs)–\(f.maxArgs)")
+        return ["SYNTAX HELP", "", " \(name)(\(args))", "", " \(count) argument" + (count == "1" ? "" : "s"), " [ ] marks optional ones", "", "", "", " Press CLEAR to continue"]
     }
 
     // MARK: - Home display model
@@ -259,7 +357,8 @@ final class CalculatorState {
 
     func insert(_ s: String) {
         guard entry.count + s.count <= Self.columns * 8 else { return }
-        if !insertMode, cursor < entry.count, !MathPrint.isTemplate(entry[cursor]) {
+        // The Evo's bar cursor never overwrites; the CE overwrites the token under the cursor unless INS is on.
+        if !insertMode, !store.evo, cursor < entry.count, !MathPrint.isTemplate(entry[cursor]) {
             let r = Tokenizer.displayTokenRange(in: entry, containing: cursor)
             entry.removeSubrange(r)
             cursor = r.lowerBound
@@ -275,7 +374,12 @@ final class CalculatorState {
     }
 
     /// In MATHPRINT mode the home screen swaps flat tokens (^, √(, Σ( …) for their stacked templates.
-    func mathPrintToken(_ s: String) -> String { store.mathPrint && !hardwareTyping ? MathPrint.template(for: s) : s }
+    func mathPrintToken(_ s: String) -> String {
+        guard store.mathPrint, !hardwareTyping else { return s }
+        // The Evo's log key is the log-of-any-base template (an empty base means 10).
+        if store.evo, s == "log(" { return MathPrint.template(.logBase) }
+        return MathPrint.template(for: s)
+    }
 
     func deleteAtCursor() {
         if entry.isEmpty { return }
@@ -469,7 +573,8 @@ final class CalculatorState {
     // MARK: - Info screens
 
     var aboutLines: [String] {
-        ["", "      Eighty4 v\(Self.version)", "", "  TI-84 Plus CE replica", "  PROD#: 0E-84-CE-0003", "  ID: 84LT-0R00-0003", "", "  RAM FREE \(MemoryModel.ramFree(store))", "  ARC FREE \(MemoryModel.arcFreeText(store))", "  Not affiliated with TI"]
+        let prod = model == .evo ? "0E-84-EV-0001" : "0E-84-CE-0003"
+        return ["", "      \(model.brand) v\(Self.version)", "", "  \(model.fullName) replica", "  PROD#: \(prod)", "  ID: 84LT-0R00-0003", "", "  RAM FREE \(MemoryModel.ramFree(store))", "  ARC FREE \(MemoryModel.arcFreeText(store))", "  Not affiliated with TI"]
     }
 
     /// Items shown by a MEM variable list.
